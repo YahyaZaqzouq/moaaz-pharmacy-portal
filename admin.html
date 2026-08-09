@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة تحكم المسؤول — صيدلية معاذ</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">→ رجوع للرئيسية</a>
+
+  <div class="topbar">
+    <div class="cap-badge">🗂️</div>
+    <div class="titles">
+      <span class="brand">صيدلية معاذ</span>
+      <h1 class="page-title">لوحة تحكم المسؤول</h1>
+    </div>
+  </div>
+
+  <!-- تسجيل الدخول -->
+  <div class="card" id="loginCard">
+    <div class="eyebrow">تسجيل دخول المسؤول</div>
+    <label for="email">البريد الإلكتروني</label>
+    <input type="text" id="email" placeholder="admin@example.com">
+    <label for="password">كلمة المرور</label>
+    <input type="text" id="password" placeholder="كلمة المرور" autocomplete="off" style="-webkit-text-security: disc;">
+    <div class="actions">
+      <button class="btn btn-primary btn-block" id="loginBtn">دخول</button>
+    </div>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <!-- لوحة التحكم -->
+  <div id="dashboard" style="display:none">
+
+    <div class="stat-row">
+      <div class="stat"><div class="num" id="statPharm">—</div><div class="lbl">عدد الصيادلة</div></div>
+      <div class="stat"><div class="num" id="statWork">—</div><div class="lbl">عدد العمال</div></div>
+      <div class="stat"><div class="num" id="statBranches">—</div><div class="lbl">عدد الفروع المختلفة</div></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="pharmacists">الصيادلة</div>
+      <div class="tab" data-tab="workers">العمال</div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="searchBox" placeholder="بحث بالاسم أو رقم الفرع...">
+      <button class="btn btn-ghost" id="exportBtn">تصدير Excel</button>
+      <button class="btn btn-ghost" id="refreshBtn">تحديث</button>
+      <button class="btn btn-ghost" id="logoutBtn">خروج</button>
+    </div>
+
+    <div class="table-scroll">
+      <table id="dataTable">
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="icon">📭</div>
+      لا توجد بيانات لعرضها بعد
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import {
+  db, auth, collection, getDocs,
+  signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "./firebase-config.js";
+
+const loginCard = document.getElementById('loginCard');
+const dashboard = document.getElementById('dashboard');
+const loginMsg = document.getElementById('loginMsg');
+
+let currentTab = 'pharmacists';
+let pharmacistsData = [];
+let workersData = [];
+
+const columns = {
+  pharmacists: [
+    ['fullName','الاسم رباعي'], ['nationality','الجنسية'], ['idNumber','رقم الهوية/الإقامة'],
+    ['licenseNumber','رقم التسجيل المهني'], ['licenseExpiry','انتهاء التسجيل'],
+    ['branchNumber','رقم الفرع'], ['mobile','رقم الجوال']
+  ],
+  workers: [
+    ['fullName','الاسم رباعي'], ['idNumber','رقم الهوية/الإقامة'], ['idExpiry','انتهاء الهوية'],
+    ['branchNumber','رقم الفرع'], ['mobile','رقم الجوال'], ['sponsor','الكفالة'], ['sponsorOther','اسم الكفيل']
+  ]
+};
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  loginMsg.className = 'msg';
+  try{
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch(e){
+    loginMsg.textContent = 'فشل تسجيل الدخول: تأكد من البيانات وحاول تاني';
+    loginMsg.className = 'msg show err';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, async (user) => {
+  if(user){
+    loginCard.style.display = 'none';
+    dashboard.style.display = 'block';
+    await loadData();
+    renderTable();
+  } else {
+    loginCard.style.display = 'block';
+    dashboard.style.display = 'none';
+  }
+});
+
+async function loadData(){
+  const [pSnap, wSnap] = await Promise.all([
+    getDocs(collection(db, 'pharmacists')),
+    getDocs(collection(db, 'workers'))
+  ]);
+  pharmacistsData = pSnap.docs.map(d => d.data());
+  workersData = wSnap.docs.map(d => d.data());
+
+  document.getElementById('statPharm').textContent = pharmacistsData.length;
+  document.getElementById('statWork').textContent = workersData.length;
+  const branches = new Set([...pharmacistsData, ...workersData].map(r => r.branchNumber).filter(Boolean));
+  document.getElementById('statBranches').textContent = branches.size;
+}
+
+document.getElementById('refreshBtn').addEventListener('click', async () => {
+  await loadData();
+  renderTable();
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentTab = tab.dataset.tab;
+    document.getElementById('searchBox').value = '';
+    renderTable();
+  });
+});
+
+document.getElementById('searchBox').addEventListener('input', renderTable);
+
+function currentData(){
+  const raw = currentTab === 'pharmacists' ? pharmacistsData : workersData;
+  const q = document.getElementById('searchBox').value.trim();
+  if(!q) return raw;
+  return raw.filter(r =>
+    (r.fullName || '').includes(q) || String(r.branchNumber || '').includes(q)
+  );
+}
+
+function renderTable(){
+  const cols = columns[currentTab];
+  const data = currentData();
+
+  const head = document.getElementById('tableHead');
+  head.innerHTML = cols.map(([,label]) => `<th>${label}</th>`).join('');
+
+  const body = document.getElementById('tableBody');
+  const emptyState = document.getElementById('emptyState');
+
+  if(data.length === 0){
+    body.innerHTML = '';
+    emptyState.style.display = 'block';
+    document.getElementById('dataTable').style.display = 'none';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  document.getElementById('dataTable').style.display = 'table';
+
+  body.innerHTML = data.map(row =>
+    '<tr>' + cols.map(([key]) => `<td>${row[key] ?? ''}</td>`).join('') + '</tr>'
+  ).join('');
+}
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const cols = columns[currentTab];
+  const data = currentData();
+  const rows = data.map(row => {
+    const obj = {};
+    cols.forEach(([key,label]) => { obj[label] = row[key] ?? ''; });
+    return obj;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, currentTab === 'pharmacists' ? 'الصيادلة' : 'العمال');
+  const fileName = (currentTab === 'pharmacists' ? 'بيانات_الصيادلة' : 'بيانات_العمال') + '.xlsx';
+  XLSX.writeFile(wb, fileName);
+});
+</script>
+</body>
+</html>

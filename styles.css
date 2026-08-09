@@ -1,0 +1,219 @@
+/* ===========================================================
+   بوابة بيانات فروع صيدلية معاذ — نظام التصميم المشترك
+   الطابع: صيدلية/عيادة — كبسولة، زجاج العنبر، أخضر الصنوبر
+   =========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap');
+
+:root{
+  --ink:        #16302B;   /* أخضر صنوبر داكن — العناوين والنصوص الأساسية */
+  --ink-soft:   #3C544E;
+  --bg:         #EEF0EA;   /* بيج فاتح مائل للأخضر — خلفية */
+  --card:       #FFFFFF;
+  --line:       #D9D6C7;
+  --amber:      #B8752E;   /* عنبر زجاج الدواء — لون التمييز والأزرار */
+  --amber-dark: #935B21;
+  --teal:       #2F6B5E;   /* أخضر متوسط — روابط وحالات ثانوية */
+  --danger:     #A6402F;
+  --ok:         #2F6B5E;
+  --radius-card: 18px;
+  --radius-capsule: 999px;
+  --shadow: 0 1px 2px rgba(22,48,43,0.06), 0 6px 20px rgba(22,48,43,0.06);
+}
+
+*{ box-sizing: border-box; }
+
+html{ scroll-behavior: smooth; }
+
+body{
+  margin:0;
+  min-height:100vh;
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(184,117,46,0.07), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  direction: rtl;
+  line-height: 1.6;
+}
+
+h1, h2, h3, .display{
+  font-family: 'Cairo', sans-serif;
+  color: var(--ink);
+  margin: 0;
+}
+
+a{ color: var(--teal); }
+
+.wrap{
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 28px 18px 64px;
+}
+
+/* شريط علوي بشكل "غطاء دواء" مقلوب */
+.topbar{
+  display:flex; align-items:center; gap:12px;
+  padding: 18px 4px 26px;
+}
+.cap-badge{
+  width:44px; height:44px; border-radius: 12px 12px 4px 4px;
+  background: linear-gradient(180deg, var(--amber), var(--amber-dark));
+  box-shadow: var(--shadow);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-family:'Cairo',sans-serif; font-weight:800; font-size:18px;
+  flex-shrink:0;
+}
+.topbar .titles{ display:flex; flex-direction:column; gap:2px; }
+.topbar .brand{ font-size:13px; color: var(--ink-soft); letter-spacing:.02em; }
+.topbar .page-title{ font-size:20px; font-weight:800; }
+
+.card{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+.eyebrow{
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:12.5px; color: var(--amber-dark); font-weight:700;
+  background: rgba(184,117,46,0.1);
+  padding: 5px 12px; border-radius: var(--radius-capsule);
+  margin-bottom: 14px;
+}
+.eyebrow::before{ content:''; width:6px; height:6px; border-radius:50%; background: var(--amber); }
+
+/* بطاقات اختيار الدور في الصفحة الرئيسية */
+.role-grid{ display:grid; gap:14px; }
+.role-card{
+  display:flex; align-items:center; gap:16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 20px;
+  text-decoration:none;
+  box-shadow: var(--shadow);
+  transition: transform .15s ease, border-color .15s ease;
+}
+.role-card:hover{ transform: translateY(-2px); border-color: var(--amber); }
+.role-card .icon{
+  width:48px; height:48px; border-radius: var(--radius-capsule);
+  background: rgba(47,107,94,0.1); color: var(--teal);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; flex-shrink:0;
+}
+.role-card .role-title{ font-family:'Cairo',sans-serif; font-weight:800; font-size:17px; color: var(--ink); }
+.role-card .role-desc{ font-size:13px; color: var(--ink-soft); margin-top:2px; }
+.role-card .arrow{ margin-inline-start:auto; color: var(--line); font-size:20px; }
+
+/* الفورمات */
+label{
+  display:block; font-size:13.5px; font-weight:600; color: var(--ink-soft);
+  margin: 16px 0 6px;
+}
+label:first-of-type{ margin-top:0; }
+input[type=text], input[type=tel], input[type=date], select{
+  width:100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #FCFBF8;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  outline:none;
+  transition: border-color .15s ease, background .15s ease;
+}
+input:focus, select:focus{
+  border-color: var(--amber);
+  background:#fff;
+  box-shadow: 0 0 0 3px rgba(184,117,46,0.14);
+}
+.hint{ font-size:12px; color:#8A8577; margin-top:5px; }
+.field-row{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+@media (max-width:520px){ .field-row{ grid-template-columns: 1fr; } }
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  border:none; cursor:pointer;
+  border-radius: var(--radius-capsule);
+  padding: 13px 26px;
+  font-family:'IBM Plex Sans Arabic', sans-serif;
+  font-weight:600; font-size:15px;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+.btn:active{ transform: scale(.98); }
+.btn-primary{ background: var(--amber); color:#fff; box-shadow: 0 4px 14px rgba(184,117,46,0.35); }
+.btn-primary:hover{ background: var(--amber-dark); }
+.btn-ghost{ background: transparent; color: var(--teal); border:1.5px solid var(--line); }
+.btn-ghost:hover{ border-color: var(--teal); }
+.btn-block{ width:100%; }
+.btn[disabled]{ opacity:.55; cursor:not-allowed; }
+
+.actions{ display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
+
+.msg{
+  margin-top:14px; padding: 12px 14px; border-radius:10px; font-size:14px; display:none;
+}
+.msg.show{ display:block; }
+.msg.ok{ background: rgba(47,107,94,0.1); color: var(--teal); }
+.msg.err{ background: rgba(166,64,47,0.1); color: var(--danger); }
+
+.back-link{
+  display:inline-flex; align-items:center; gap:6px;
+  color: var(--ink-soft); text-decoration:none; font-size:13.5px; margin-bottom:16px;
+}
+.back-link:hover{ color: var(--ink); }
+
+/* شارة الفرع — العنصر المميز */
+.branch-chip{
+  display:inline-flex; align-items:center; gap:6px;
+  background: var(--ink); color:#fff;
+  font-family:'Cairo',sans-serif; font-weight:700; font-size:12.5px;
+  padding: 4px 12px 4px 6px; border-radius: var(--radius-capsule);
+}
+.branch-chip .dot{
+  width:20px; height:20px; border-radius:50%;
+  background: var(--amber); display:flex; align-items:center; justify-content:center;
+  font-size:11px; color:#fff;
+}
+
+/* لوحة تحكم المسؤول */
+.tabs{ display:flex; gap:8px; margin-bottom:18px; }
+.tab{
+  padding:9px 18px; border-radius: var(--radius-capsule);
+  background: var(--card); border:1.5px solid var(--line);
+  cursor:pointer; font-size:14px; font-weight:600; color: var(--ink-soft);
+}
+.tab.active{ background: var(--ink); border-color: var(--ink); color:#fff; }
+
+.toolbar{ display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+.toolbar input[type=text]{ flex:1; min-width:160px; }
+
+table{ width:100%; border-collapse: collapse; font-size:13.5px; }
+thead th{
+  text-align:right; padding:10px 12px; background: var(--ink); color:#fff;
+  font-family:'Cairo',sans-serif; font-weight:700; font-size:12.5px;
+  position:sticky; top:0;
+}
+thead th:first-child{ border-radius:10px 0 0 0; }
+thead th:last-child{ border-radius:0 10px 0 0; }
+tbody td{ padding:10px 12px; border-bottom:1px solid var(--line); color: var(--ink); }
+tbody tr:hover{ background: rgba(184,117,46,0.05); }
+.table-scroll{ overflow-x:auto; border-radius:10px; border:1px solid var(--line); }
+
+.empty-state{ text-align:center; padding: 40px 20px; color: var(--ink-soft); }
+.empty-state .icon{ font-size:34px; margin-bottom:10px; }
+
+.stat-row{ display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+.stat{
+  flex:1; min-width:120px; background: var(--card); border:1px solid var(--line);
+  border-radius:14px; padding:14px 16px;
+}
+.stat .num{ font-family:'Cairo',sans-serif; font-weight:800; font-size:24px; color: var(--ink); }
+.stat .lbl{ font-size:12px; color: var(--ink-soft); margin-top:2px; }
+
+.footer-note{ text-align:center; font-size:12px; color:#9A9585; margin-top:30px; }

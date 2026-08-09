@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بيانات الصيادلة — صيدلية معاذ</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">→ رجوع للرئيسية</a>
+
+  <div class="topbar">
+    <div class="cap-badge">💊</div>
+    <div class="titles">
+      <span class="brand">صيدلية معاذ</span>
+      <h1 class="page-title">بيانات الصيادلة</h1>
+    </div>
+  </div>
+
+  <!-- خطوة 1: البحث برقم الهوية -->
+  <div class="card" id="lookupCard">
+    <div class="eyebrow">الخطوة الأولى</div>
+    <label for="lookupId">رقم الهوية / الإقامة</label>
+    <input type="text" id="lookupId" inputmode="numeric" placeholder="مثال: 1023456789">
+    <div class="hint">لو بياناتك متسجلة قبل كده، هتظهر تلقائي عشان تعدلها. لو أول مرة، هتقدر تسجلها من جديد.</div>
+    <div class="actions">
+      <button class="btn btn-primary btn-block" id="lookupBtn">متابعة</button>
+    </div>
+    <div class="msg" id="lookupMsg"></div>
+  </div>
+
+  <!-- خطوة 2: الفورم -->
+  <div class="card" id="formCard" style="display:none">
+    <div class="eyebrow" id="formModeLabel">بيانات جديدة</div>
+
+    <label>الاسم رباعي</label>
+    <input type="text" id="fullName" placeholder="الاسم الأول الأب الجد العائلة">
+
+    <div class="field-row">
+      <div>
+        <label>الجنسية</label>
+        <input type="text" id="nationality" placeholder="مثال: سعودي">
+      </div>
+      <div>
+        <label>رقم الفرع</label>
+        <input type="text" id="branchNumber" inputmode="numeric" placeholder="مثال: 29">
+      </div>
+    </div>
+
+    <label>رقم الهوية / الإقامة</label>
+    <input type="text" id="idNumber" inputmode="numeric" disabled>
+
+    <label>رقم التسجيل المهني</label>
+    <input type="text" id="licenseNumber" placeholder="رقم التسجيل المهني">
+
+    <label>تاريخ انتهاء التسجيل المهني</label>
+    <input type="date" id="licenseExpiry">
+
+    <label>رقم الجوال</label>
+    <input type="tel" id="mobile" placeholder="05XXXXXXXX">
+
+    <div class="actions">
+      <button class="btn btn-primary" id="saveBtn">حفظ البيانات</button>
+      <button class="btn btn-ghost" id="cancelBtn">إلغاء</button>
+    </div>
+    <div class="msg" id="formMsg"></div>
+  </div>
+
+</div>
+
+<script type="module">
+import { db, doc, setDoc, getDoc, serverTimestamp } from "./firebase-config.js";
+
+const lookupCard = document.getElementById('lookupCard');
+const formCard = document.getElementById('formCard');
+const lookupIdEl = document.getElementById('lookupId');
+const lookupMsg = document.getElementById('lookupMsg');
+const formMsg = document.getElementById('formMsg');
+const formModeLabel = document.getElementById('formModeLabel');
+
+function showMsg(el, text, ok){
+  el.textContent = text;
+  el.className = 'msg show ' + (ok ? 'ok' : 'err');
+}
+
+document.getElementById('lookupBtn').addEventListener('click', async () => {
+  const id = lookupIdEl.value.trim();
+  if(!id){ showMsg(lookupMsg, 'من فضلك اكتب رقم الهوية/الإقامة', false); return; }
+
+  document.getElementById('idNumber').value = id;
+
+  try{
+    const snap = await getDoc(doc(db, 'pharmacists', id));
+    if(snap.exists()){
+      const d = snap.data();
+      document.getElementById('fullName').value = d.fullName || '';
+      document.getElementById('nationality').value = d.nationality || '';
+      document.getElementById('branchNumber').value = d.branchNumber || '';
+      document.getElementById('licenseNumber').value = d.licenseNumber || '';
+      document.getElementById('licenseExpiry').value = d.licenseExpiry || '';
+      document.getElementById('mobile').value = d.mobile || '';
+      formModeLabel.textContent = 'تعديل بيانات موجودة';
+    } else {
+      formModeLabel.textContent = 'بيانات جديدة';
+    }
+    lookupCard.style.display = 'none';
+    formCard.style.display = 'block';
+  } catch(e){
+    showMsg(lookupMsg, 'حصل خطأ في الاتصال، حاول تاني: ' + e.message, false);
+  }
+});
+
+document.getElementById('cancelBtn').addEventListener('click', () => {
+  formCard.style.display = 'none';
+  lookupCard.style.display = 'block';
+  formMsg.className = 'msg';
+});
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const id = document.getElementById('idNumber').value.trim();
+  const data = {
+    fullName: document.getElementById('fullName').value.trim(),
+    nationality: document.getElementById('nationality').value.trim(),
+    idNumber: id,
+    licenseNumber: document.getElementById('licenseNumber').value.trim(),
+    licenseExpiry: document.getElementById('licenseExpiry').value,
+    branchNumber: document.getElementById('branchNumber').value.trim(),
+    mobile: document.getElementById('mobile').value.trim(),
+    updatedAt: serverTimestamp()
+  };
+
+  if(!data.fullName || !data.branchNumber || !data.mobile){
+    showMsg(formMsg, 'من فضلك املا على الأقل: الاسم، رقم الفرع، رقم الجوال', false);
+    return;
+  }
+
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true; saveBtn.textContent = 'جاري الحفظ...';
+
+  try{
+    await setDoc(doc(db, 'pharmacists', id), data, { merge: true });
+    showMsg(formMsg, 'تم حفظ بياناتك بنجاح ✓', true);
+  } catch(e){
+    showMsg(formMsg, 'حصل خطأ أثناء الحفظ: ' + e.message, false);
+  } finally {
+    saveBtn.disabled = false; saveBtn.textContent = 'حفظ البيانات';
+  }
+});
+</script>
+</body>
+</html>
