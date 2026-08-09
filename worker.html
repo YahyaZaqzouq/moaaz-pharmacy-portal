@@ -18,27 +18,15 @@
     </div>
   </div>
 
-  <!-- خطوة 1: البحث برقم الهوية -->
-  <div class="card" id="lookupCard">
-    <div class="eyebrow">الخطوة الأولى</div>
-    <label for="lookupId">رقم الهوية / الإقامة</label>
-    <input type="text" id="lookupId" inputmode="numeric" placeholder="مثال: 1023456789">
-    <div class="hint">لو بياناتك متسجلة قبل كده، هتظهر تلقائي عشان تعدلها. لو أول مرة، هتقدر تسجلها من جديد.</div>
-    <div class="actions">
-      <button class="btn btn-primary btn-block" id="lookupBtn">متابعة</button>
-    </div>
-    <div class="msg" id="lookupMsg"></div>
-  </div>
-
-  <!-- خطوة 2: الفورم -->
-  <div class="card" id="formCard" style="display:none">
-    <div class="eyebrow" id="formModeLabel">بيانات جديدة</div>
+  <div class="card">
+    <div class="eyebrow">تسجيل / تحديث البيانات</div>
+    <div class="hint" style="margin-bottom:16px">لو سبق وسجلت بياناتك، وابعتها تاني بنفس رقم الهوية، هتستبدل القديمة تلقائي بالجديدة.</div>
 
     <label>الاسم رباعي</label>
     <input type="text" id="fullName" placeholder="الاسم الأول الأب الجد العائلة">
 
     <label>رقم الهوية / الإقامة</label>
-    <input type="text" id="idNumber" inputmode="numeric" disabled>
+    <input type="text" id="idNumber" inputmode="numeric" placeholder="مثال: 1023456789">
 
     <div class="field-row">
       <div>
@@ -68,8 +56,7 @@
     </div>
 
     <div class="actions">
-      <button class="btn btn-primary" id="saveBtn">حفظ البيانات</button>
-      <button class="btn btn-ghost" id="cancelBtn">إلغاء</button>
+      <button class="btn btn-primary btn-block" id="saveBtn">حفظ البيانات</button>
     </div>
     <div class="msg" id="formMsg"></div>
   </div>
@@ -77,58 +64,19 @@
 </div>
 
 <script type="module">
-import { db, doc, setDoc, getDoc, serverTimestamp } from "./firebase-config.js";
+import { db, doc, setDoc, serverTimestamp } from "./firebase-config.js";
 
-const lookupCard = document.getElementById('lookupCard');
-const formCard = document.getElementById('formCard');
-const lookupIdEl = document.getElementById('lookupId');
-const lookupMsg = document.getElementById('lookupMsg');
 const formMsg = document.getElementById('formMsg');
-const formModeLabel = document.getElementById('formModeLabel');
 const sponsorSelect = document.getElementById('sponsor');
 const sponsorOtherWrap = document.getElementById('sponsorOtherWrap');
 
-function showMsg(el, text, ok){
-  el.textContent = text;
-  el.className = 'msg show ' + (ok ? 'ok' : 'err');
+function showMsg(text, ok){
+  formMsg.textContent = text;
+  formMsg.className = 'msg show ' + (ok ? 'ok' : 'err');
 }
 
 sponsorSelect.addEventListener('change', () => {
   sponsorOtherWrap.style.display = sponsorSelect.value === 'اخر' ? 'block' : 'none';
-});
-
-document.getElementById('lookupBtn').addEventListener('click', async () => {
-  const id = lookupIdEl.value.trim();
-  if(!id){ showMsg(lookupMsg, 'من فضلك اكتب رقم الهوية/الإقامة', false); return; }
-
-  document.getElementById('idNumber').value = id;
-
-  try{
-    const snap = await getDoc(doc(db, 'workers', id));
-    if(snap.exists()){
-      const d = snap.data();
-      document.getElementById('fullName').value = d.fullName || '';
-      document.getElementById('idExpiry').value = d.idExpiry || '';
-      document.getElementById('branchNumber').value = d.branchNumber || '';
-      document.getElementById('mobile').value = d.mobile || '';
-      sponsorSelect.value = d.sponsor || '';
-      sponsorOtherWrap.style.display = d.sponsor === 'اخر' ? 'block' : 'none';
-      document.getElementById('sponsorOther').value = d.sponsorOther || '';
-      formModeLabel.textContent = 'تعديل بيانات موجودة';
-    } else {
-      formModeLabel.textContent = 'بيانات جديدة';
-    }
-    lookupCard.style.display = 'none';
-    formCard.style.display = 'block';
-  } catch(e){
-    showMsg(lookupMsg, 'حصل خطأ في الاتصال، حاول تاني: ' + e.message, false);
-  }
-});
-
-document.getElementById('cancelBtn').addEventListener('click', () => {
-  formCard.style.display = 'none';
-  lookupCard.style.display = 'block';
-  formMsg.className = 'msg';
 });
 
 document.getElementById('saveBtn').addEventListener('click', async () => {
@@ -145,8 +93,8 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     updatedAt: serverTimestamp()
   };
 
-  if(!data.fullName || !data.branchNumber || !data.mobile || !sponsor){
-    showMsg(formMsg, 'من فضلك املا على الأقل: الاسم، رقم الفرع، رقم الجوال، الكفالة', false);
+  if(!id || !data.fullName || !data.branchNumber || !data.mobile || !sponsor){
+    showMsg('من فضلك املا على الأقل: رقم الهوية، الاسم، رقم الفرع، رقم الجوال، الكفالة', false);
     return;
   }
 
@@ -154,10 +102,10 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   saveBtn.disabled = true; saveBtn.textContent = 'جاري الحفظ...';
 
   try{
-    await setDoc(doc(db, 'workers', id), data, { merge: true });
-    showMsg(formMsg, 'تم حفظ بياناتك بنجاح ✓', true);
+    await setDoc(doc(db, 'workers', id), data);
+    showMsg('تم حفظ بياناتك بنجاح ✓', true);
   } catch(e){
-    showMsg(formMsg, 'حصل خطأ أثناء الحفظ: ' + e.message, false);
+    showMsg('حصل خطأ أثناء الحفظ: ' + e.message, false);
   } finally {
     saveBtn.disabled = false; saveBtn.textContent = 'حفظ البيانات';
   }
