@@ -33,7 +33,6 @@ body{
     var(--bg);
   color: var(--ink);
   font-family: 'IBM Plex Sans Arabic', sans-serif;
-  direction: rtl;
   line-height: 1.6;
 }
 
@@ -67,6 +66,16 @@ a{ color: var(--teal); }
 .topbar .titles{ display:flex; flex-direction:column; gap:2px; }
 .topbar .brand{ font-size:13px; color: var(--ink-soft); letter-spacing:.02em; }
 .topbar .page-title{ font-size:20px; font-weight:800; }
+
+.lang-toggle{
+  margin-inline-start: auto;
+  background: var(--card); border: 1.5px solid var(--line);
+  color: var(--ink); font-family:'IBM Plex Sans Arabic', sans-serif;
+  font-size: 13px; font-weight:600; cursor:pointer;
+  padding: 8px 16px; border-radius: var(--radius-capsule);
+  flex-shrink:0;
+}
+.lang-toggle:hover{ border-color: var(--amber); color: var(--amber-dark); }
 
 .card{
   background: var(--card);

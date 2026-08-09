@@ -3,31 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>لوحة تحكم المسؤول — صيدلية معاذ</title>
+<title data-i18n="title_admin">لوحة تحكم المسؤول — صيدلية معاذ</title>
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="wrap">
-  <a class="back-link" href="index.html">→ رجوع للرئيسية</a>
+  <a class="back-link" href="index.html" data-i18n="backLink">→ رجوع للرئيسية</a>
 
   <div class="topbar">
     <div class="cap-badge">🗂️</div>
     <div class="titles">
-      <span class="brand">صيدلية معاذ</span>
-      <h1 class="page-title">لوحة تحكم المسؤول</h1>
+      <span class="brand" data-i18n="brand">صيدلية معاذ</span>
+      <h1 class="page-title" data-i18n="pageHeading_admin">لوحة تحكم المسؤول</h1>
     </div>
+    <button class="lang-toggle" id="langToggle">English</button>
   </div>
 
   <!-- تسجيل الدخول -->
   <div class="card" id="loginCard">
-    <div class="eyebrow">تسجيل دخول المسؤول</div>
-    <label for="email">البريد الإلكتروني</label>
+    <div class="eyebrow" data-i18n="loginEyebrow">تسجيل دخول المسؤول</div>
+    <label for="email" data-i18n="label_email">البريد الإلكتروني</label>
     <input type="text" id="email" placeholder="admin@example.com">
-    <label for="password">كلمة المرور</label>
-    <input type="text" id="password" placeholder="كلمة المرور" autocomplete="off" style="-webkit-text-security: disc;">
+    <label for="password" data-i18n="label_password">كلمة المرور</label>
+    <input type="text" id="password" data-i18n-placeholder="label_password" placeholder="كلمة المرور" autocomplete="off" style="-webkit-text-security: disc;">
     <div class="actions">
-      <button class="btn btn-primary btn-block" id="loginBtn">دخول</button>
+      <button class="btn btn-primary btn-block" id="loginBtn" data-i18n="loginBtn">دخول</button>
     </div>
     <div class="msg" id="loginMsg"></div>
   </div>
@@ -36,21 +37,21 @@
   <div id="dashboard" style="display:none">
 
     <div class="stat-row">
-      <div class="stat"><div class="num" id="statPharm">—</div><div class="lbl">عدد الصيادلة</div></div>
-      <div class="stat"><div class="num" id="statWork">—</div><div class="lbl">عدد العمال</div></div>
-      <div class="stat"><div class="num" id="statBranches">—</div><div class="lbl">عدد الفروع المختلفة</div></div>
+      <div class="stat"><div class="num" id="statPharm">—</div><div class="lbl" data-i18n="statPharm">عدد الصيادلة</div></div>
+      <div class="stat"><div class="num" id="statWork">—</div><div class="lbl" data-i18n="statWork">عدد العمال</div></div>
+      <div class="stat"><div class="num" id="statBranches">—</div><div class="lbl" data-i18n="statBranches">عدد الفروع المختلفة</div></div>
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="pharmacists">الصيادلة</div>
-      <div class="tab" data-tab="workers">العمال</div>
+      <div class="tab active" data-tab="pharmacists" data-i18n="tab_pharmacists">الصيادلة</div>
+      <div class="tab" data-tab="workers" data-i18n="tab_workers">العمال</div>
     </div>
 
     <div class="toolbar">
-      <input type="text" id="searchBox" placeholder="بحث بالاسم أو رقم الفرع...">
-      <button class="btn btn-ghost" id="exportBtn">تصدير Excel</button>
-      <button class="btn btn-ghost" id="refreshBtn">تحديث</button>
-      <button class="btn btn-ghost" id="logoutBtn">خروج</button>
+      <input type="text" id="searchBox" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+      <button class="btn btn-ghost" id="exportBtn" data-i18n="exportBtn">تصدير Excel</button>
+      <button class="btn btn-ghost" id="refreshBtn" data-i18n="refreshBtn">تحديث</button>
+      <button class="btn btn-ghost" id="logoutBtn" data-i18n="logoutBtn">خروج</button>
     </div>
 
     <div class="table-scroll">
@@ -62,7 +63,7 @@
 
     <div class="empty-state" id="emptyState" style="display:none">
       <div class="icon">📭</div>
-      لا توجد بيانات لعرضها بعد
+      <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
     </div>
   </div>
 
@@ -73,6 +74,13 @@ import {
   db, auth, collection, getDocs,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
+import { initLangToggle, getLang, dict } from "./i18n.js";
+
+const currentLang = initLangToggle();
+// إعادة تطبيق الترجمة بعد أي تبديل لغة أثناء الاستخدام
+document.getElementById('langToggle').addEventListener('click', () => {
+  renderTable();
+});
 
 const loginCard = document.getElementById('loginCard');
 const dashboard = document.getElementById('dashboard');
@@ -82,26 +90,30 @@ let currentTab = 'pharmacists';
 let pharmacistsData = [];
 let workersData = [];
 
-const columns = {
-  pharmacists: [
-    ['fullName','الاسم رباعي'], ['nationality','الجنسية'], ['idNumber','رقم الهوية/الإقامة'],
-    ['licenseNumber','رقم التسجيل المهني'], ['licenseExpiry','انتهاء التسجيل'],
-    ['branchNumber','رقم الفرع'], ['mobile','رقم الجوال']
-  ],
-  workers: [
-    ['fullName','الاسم رباعي'], ['idNumber','رقم الهوية/الإقامة'], ['idExpiry','انتهاء الهوية'],
-    ['branchNumber','رقم الفرع'], ['mobile','رقم الجوال'], ['sponsor','الكفالة'], ['sponsorOther','اسم الكفيل']
-  ]
-};
+function columns(){
+  const t = dict[getLang()];
+  return {
+    pharmacists: [
+      ['fullName', t.col_fullName], ['nationality', t.col_nationality], ['idNumber', t.col_idNumber],
+      ['licenseNumber', t.col_licenseNumber], ['licenseExpiry', t.col_licenseExpiry],
+      ['branchNumber', t.col_branchNumber], ['mobile', t.col_mobile]
+    ],
+    workers: [
+      ['fullName', t.col_fullName], ['idNumber', t.col_idNumber], ['idExpiry', t.col_idExpiry],
+      ['branchNumber', t.col_branchNumber], ['mobile', t.col_mobile], ['sponsor', t.col_sponsor], ['sponsorOther', t.col_sponsorOther]
+    ]
+  };
+}
 
 document.getElementById('loginBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   loginMsg.className = 'msg';
   try{
     await signInWithEmailAndPassword(auth, email, password);
   } catch(e){
-    loginMsg.textContent = 'فشل تسجيل الدخول: تأكد من البيانات وحاول تاني';
+    loginMsg.textContent = t.loginError;
     loginMsg.className = 'msg show err';
   }
 });
@@ -161,7 +173,7 @@ function currentData(){
 }
 
 function renderTable(){
-  const cols = columns[currentTab];
+  const cols = columns()[currentTab];
   const data = currentData();
 
   const head = document.getElementById('tableHead');
@@ -186,7 +198,8 @@ function renderTable(){
 }
 
 document.getElementById('exportBtn').addEventListener('click', () => {
-  const cols = columns[currentTab];
+  const t = dict[getLang()];
+  const cols = columns()[currentTab];
   const data = currentData();
   const rows = data.map(row => {
     const obj = {};
@@ -195,8 +208,9 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   });
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, currentTab === 'pharmacists' ? 'الصيادلة' : 'العمال');
-  const fileName = (currentTab === 'pharmacists' ? 'بيانات_الصيادلة' : 'بيانات_العمال') + '.xlsx';
+  const sheetName = currentTab === 'pharmacists' ? t.sheetName_pharmacists : t.sheetName_workers;
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  const fileName = (currentTab === 'pharmacists' ? t.fileName_pharmacists : t.fileName_workers) + '.xlsx';
   XLSX.writeFile(wb, fileName);
 });
 </script>

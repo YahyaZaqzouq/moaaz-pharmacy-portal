@@ -3,60 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>بيانات العمال — صيدلية معاذ</title>
+<title data-i18n="title_worker">بيانات العمال — صيدلية معاذ</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="wrap">
-  <a class="back-link" href="index.html">→ رجوع للرئيسية</a>
+  <a class="back-link" href="index.html" data-i18n="backLink">→ رجوع للرئيسية</a>
 
   <div class="topbar">
     <div class="cap-badge">🧑‍💼</div>
     <div class="titles">
-      <span class="brand">صيدلية معاذ</span>
-      <h1 class="page-title">بيانات العمال</h1>
+      <span class="brand" data-i18n="brand">صيدلية معاذ</span>
+      <h1 class="page-title" data-i18n="pageHeading_worker">بيانات العمال</h1>
     </div>
+    <button class="lang-toggle" id="langToggle">English</button>
   </div>
 
   <div class="card">
-    <div class="eyebrow">تسجيل / تحديث البيانات</div>
-    <div class="hint" style="margin-bottom:16px">لو سبق وسجلت بياناتك، وابعتها تاني بنفس رقم الهوية، هتستبدل القديمة تلقائي بالجديدة.</div>
+    <div class="eyebrow" data-i18n="formEyebrow">تسجيل / تحديث البيانات</div>
+    <div class="hint" data-i18n="hint_resubmit" style="margin-bottom:16px">لو سبق وسجلت بياناتك، وابعتها تاني بنفس رقم الهوية، هتستبدل القديمة تلقائي بالجديدة.</div>
 
-    <label>الاسم رباعي</label>
-    <input type="text" id="fullName" placeholder="الاسم الأول الأب الجد العائلة">
+    <label data-i18n="label_fullName">الاسم رباعي</label>
+    <input type="text" id="fullName" data-i18n-placeholder="ph_fullName" placeholder="الاسم الأول الأب الجد العائلة">
 
-    <label>رقم الهوية / الإقامة</label>
-    <input type="text" id="idNumber" inputmode="numeric" placeholder="مثال: 1023456789">
+    <label data-i18n="label_idNumber">رقم الهوية / الإقامة</label>
+    <input type="text" id="idNumber" inputmode="numeric" data-i18n-placeholder="ph_idNumber" placeholder="مثال: 1023456789">
 
     <div class="field-row">
       <div>
-        <label>تاريخ انتهاء الهوية / الإقامة</label>
+        <label data-i18n="label_idExpiry">تاريخ انتهاء الهوية / الإقامة</label>
         <input type="date" id="idExpiry">
       </div>
       <div>
-        <label>رقم الفرع</label>
-        <input type="text" id="branchNumber" inputmode="numeric" placeholder="مثال: 29">
+        <label data-i18n="label_branchNumber">رقم الفرع</label>
+        <input type="text" id="branchNumber" inputmode="numeric" data-i18n-placeholder="ph_branchNumber" placeholder="مثال: 29">
       </div>
     </div>
 
-    <label>رقم الجوال</label>
-    <input type="tel" id="mobile" placeholder="05XXXXXXXX">
+    <label data-i18n="label_mobile">رقم الجوال</label>
+    <input type="tel" id="mobile" data-i18n-placeholder="ph_mobile" placeholder="05XXXXXXXX">
 
-    <label>الكفالة</label>
+    <label data-i18n="label_sponsor">الكفالة</label>
     <select id="sponsor">
-      <option value="">اختر الكفالة</option>
-      <option value="معاذ">معاذ</option>
-      <option value="شمائل الحجاز">شمائل الحجاز</option>
-      <option value="اخر">أخرى</option>
+      <option value="" data-i18n="sponsor_placeholder">اختر الكفالة</option>
+      <option value="معاذ" data-i18n="sponsor_moaz">معاذ</option>
+      <option value="شمائل الحجاز" data-i18n="sponsor_shamail">شمائل الحجاز</option>
+      <option value="اخر" data-i18n="sponsor_other">أخرى</option>
     </select>
 
     <div id="sponsorOtherWrap" style="display:none">
-      <label>اسم الكفيل</label>
-      <input type="text" id="sponsorOther" placeholder="اكتب اسم الكفيل">
+      <label data-i18n="label_sponsorOther">اسم الكفيل</label>
+      <input type="text" id="sponsorOther" data-i18n-placeholder="ph_sponsorOther" placeholder="اكتب اسم الكفيل">
     </div>
 
     <div class="actions">
-      <button class="btn btn-primary btn-block" id="saveBtn">حفظ البيانات</button>
+      <button class="btn btn-primary btn-block" id="saveBtn" data-i18n="saveBtn">حفظ البيانات</button>
     </div>
     <div class="msg" id="formMsg"></div>
   </div>
@@ -65,6 +66,9 @@
 
 <script type="module">
 import { db, doc, setDoc, serverTimestamp } from "./firebase-config.js";
+import { initLangToggle, getLang, dict } from "./i18n.js";
+
+initLangToggle();
 
 const formMsg = document.getElementById('formMsg');
 const sponsorSelect = document.getElementById('sponsor');
@@ -80,6 +84,8 @@ sponsorSelect.addEventListener('change', () => {
 });
 
 document.getElementById('saveBtn').addEventListener('click', async () => {
+  const lang = getLang();
+  const t = dict[lang];
   const id = document.getElementById('idNumber').value.trim();
   const sponsor = sponsorSelect.value;
   const data = {
@@ -94,20 +100,20 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   };
 
   if(!id || !data.fullName || !data.branchNumber || !data.mobile || !sponsor){
-    showMsg('من فضلك املا على الأقل: رقم الهوية، الاسم، رقم الفرع، رقم الجوال، الكفالة', false);
+    showMsg(t.errRequired_worker, false);
     return;
   }
 
   const saveBtn = document.getElementById('saveBtn');
-  saveBtn.disabled = true; saveBtn.textContent = 'جاري الحفظ...';
+  saveBtn.disabled = true; saveBtn.textContent = t.saving;
 
   try{
     await setDoc(doc(db, 'workers', id), data);
-    showMsg('تم حفظ بياناتك بنجاح ✓', true);
+    showMsg(t.successMsg, true);
   } catch(e){
-    showMsg('حصل خطأ أثناء الحفظ: ' + e.message, false);
+    showMsg(t.errPrefix + e.message, false);
   } finally {
-    saveBtn.disabled = false; saveBtn.textContent = 'حفظ البيانات';
+    saveBtn.disabled = false; saveBtn.textContent = t.saveBtn;
   }
 });
 </script>

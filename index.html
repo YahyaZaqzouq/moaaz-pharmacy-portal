@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>بوابة بيانات الفروع — صيدلية معاذ</title>
+<title data-i18n="title_index">بوابة بيانات الفروع — صيدلية معاذ</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,43 +12,48 @@
   <div class="topbar">
     <div class="cap-badge">م</div>
     <div class="titles">
-      <span class="brand">صيدلية معاذ — MOAZ PHARMACY</span>
-      <h1 class="page-title">بوابة بيانات الفروع</h1>
+      <span class="brand" data-i18n="brand">صيدلية معاذ</span>
+      <h1 class="page-title" data-i18n="portalTitle">بوابة بيانات الفروع</h1>
     </div>
+    <button class="lang-toggle" id="langToggle">English</button>
   </div>
 
-  <div class="eyebrow">اختر الدور اللي هتدخل بيه</div>
+  <div class="eyebrow" data-i18n="chooseRole">اختر الدور اللي هتدخل بيه</div>
 
   <div class="role-grid">
     <a class="role-card" href="pharmacist.html">
       <div class="icon">💊</div>
       <div>
-        <div class="role-title">صيدلي</div>
-        <div class="role-desc">تسجيل أو تعديل بياناتك كصيدلي في أحد الفروع</div>
+        <div class="role-title" data-i18n="roleTitle_pharmacist">صيدلي</div>
+        <div class="role-desc" data-i18n="roleDesc_pharmacist">تسجيل أو تعديل بياناتك كصيدلي في أحد الفروع</div>
       </div>
-      <div class="arrow">‹</div>
+      <div class="arrow" data-i18n="roleArrow">‹</div>
     </a>
 
     <a class="role-card" href="worker.html">
       <div class="icon">🧑‍💼</div>
       <div>
-        <div class="role-title">عامل</div>
-        <div class="role-desc">تسجيل أو تعديل بياناتك كعامل في أحد الفروع</div>
+        <div class="role-title" data-i18n="roleTitle_worker">عامل</div>
+        <div class="role-desc" data-i18n="roleDesc_worker">تسجيل أو تعديل بياناتك كعامل في أحد الفروع</div>
       </div>
-      <div class="arrow">‹</div>
+      <div class="arrow" data-i18n="roleArrow">‹</div>
     </a>
 
     <a class="role-card" href="admin.html">
       <div class="icon">🗂️</div>
       <div>
-        <div class="role-title">المسؤول</div>
-        <div class="role-desc">تسجيل الدخول لعرض كل البيانات وتصديرها</div>
+        <div class="role-title" data-i18n="roleTitle_admin">المسؤول</div>
       </div>
-      <div class="arrow">‹</div>
+      <div class="arrow" data-i18n="roleArrow">‹</div>
     </a>
   </div>
 
-  <div class="footer-note">بياناتك بتتحفظ مباشرة وبتقدر ترجع تعدلها في أي وقت برقم الهوية/الإقامة بتاعتك</div>
+  <div class="footer-note" data-i18n="footerNote">بياناتك بتتحفظ مباشرة، ولو بعتها تاني بنفس رقم الهوية/الإقامة بتستبدل القديمة تلقائي</div>
 </div>
+
+<script type="module">
+import { initLangToggle } from "./i18n.js";
+initLangToggle();
+</script>
 </body>
 </html>
