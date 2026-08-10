@@ -19,6 +19,8 @@ export const dict = {
     roleTitle_worker: "عامل",
     roleDesc_worker: "تسجيل أو تعديل بياناتك كعامل في أحد الفروع",
     roleTitle_admin: "المسؤول",
+    roleTitle_branch: "بيانات الفرع",
+    roleDesc_branch: "تسجيل دخول مسؤول الفروع لإدارة التراخيص والإصلاحات",
     roleArrow: "‹",
     footerNote: "بياناتك بتتحفظ مباشرة، ولو بعتها تاني بنفس رقم الهوية/الإقامة بتستبدل القديمة تلقائي",
 
@@ -40,6 +42,8 @@ export const dict = {
     label_licenseExpiry: "تاريخ انتهاء التسجيل المهني",
     label_mobile: "رقم الجوال",
     ph_mobile: "05XXXXXXXX",
+    label_workHours: "عدد ساعات العمل",
+    ph_workHours: "مثال: 8",
     saveBtn: "حفظ البيانات",
     saving: "جاري الحفظ...",
     successMsg: "تم حفظ بياناتك بنجاح ✓",
@@ -85,13 +89,31 @@ export const dict = {
     col_licenseExpiry: "انتهاء التسجيل",
     col_branchNumber: "رقم الفرع",
     col_mobile: "رقم الجوال",
+    col_workHours: "عدد ساعات العمل",
     col_idExpiry: "انتهاء الهوية",
     col_sponsor: "الكفالة",
     col_sponsorOther: "اسم الكفيل",
     sheetName_pharmacists: "الصيادلة",
     sheetName_workers: "العمال",
     fileName_pharmacists: "بيانات_الصيادلة",
-    fileName_workers: "بيانات_العمال"
+    fileName_workers: "بيانات_العمال",
+
+    // صفحة بيانات الفرع
+    title_branch: "بيانات الفرع — صيدلية معاذ",
+    pageHeading_branch: "بيانات الفرع",
+    loginEyebrow_branch: "تسجيل دخول مسؤول الفروع",
+    tab_repairs: "الإصلاحات المطلوبة",
+    tab_licenses: "التراخيص",
+    newRepairEyebrow: "تسجيل عطل جديد",
+    label_repairDesc: "وصف العطل",
+    ph_repairDesc: "مثال: تكييف الفرع معطل",
+    label_reportDate: "تاريخ البلاغ",
+    addRepairBtn: "إضافة البلاغ",
+    errRequired_repair: "من فضلك املا رقم الفرع، وصف العطل، وتاريخ البلاغ",
+    licensesPlaceholder: "قسم التراخيص هيتم تجهيزه بمجرد ما نحدد الحقول المطلوبة",
+    col_repairDesc: "وصف العطل",
+    col_reportDate: "تاريخ البلاغ",
+    col_status: "الحالة"
   },
 
   en: {
@@ -107,6 +129,8 @@ export const dict = {
     roleTitle_worker: "Worker",
     roleDesc_worker: "Register or update your data as a worker at a branch",
     roleTitle_admin: "Admin",
+    roleTitle_branch: "Branch Data",
+    roleDesc_branch: "Branch manager login to manage licenses and repairs",
     roleArrow: "›",
     footerNote: "Your data is saved directly — resubmitting with the same ID/Iqama number automatically replaces the old entry",
 
@@ -127,6 +151,8 @@ export const dict = {
     label_licenseExpiry: "Registration Expiry Date",
     label_mobile: "Mobile Number",
     ph_mobile: "05XXXXXXXX",
+    label_workHours: "Working Hours",
+    ph_workHours: "e.g. 8",
     saveBtn: "Save Data",
     saving: "Saving...",
     successMsg: "Your data was saved successfully ✓",
@@ -170,13 +196,31 @@ export const dict = {
     col_licenseExpiry: "License Expiry",
     col_branchNumber: "Branch Number",
     col_mobile: "Mobile Number",
+    col_workHours: "Working Hours",
     col_idExpiry: "ID Expiry",
     col_sponsor: "Sponsor",
     col_sponsorOther: "Sponsor Name",
     sheetName_pharmacists: "Pharmacists",
     sheetName_workers: "Workers",
     fileName_pharmacists: "pharmacists_data",
-    fileName_workers: "workers_data"
+    fileName_workers: "workers_data",
+
+    // Branch data page
+    title_branch: "Branch Data — Moaz Pharmacy",
+    pageHeading_branch: "Branch Data",
+    loginEyebrow_branch: "Branch Manager Login",
+    tab_repairs: "Required Repairs",
+    tab_licenses: "Licenses",
+    newRepairEyebrow: "Report a New Issue",
+    label_repairDesc: "Issue Description",
+    ph_repairDesc: "e.g. Branch AC not working",
+    label_reportDate: "Report Date",
+    addRepairBtn: "Add Report",
+    errRequired_repair: "Please fill in branch number, issue description, and report date",
+    licensesPlaceholder: "The licenses section will be set up once the required fields are defined",
+    col_repairDesc: "Issue Description",
+    col_reportDate: "Report Date",
+    col_status: "Status"
   }
 };
 
