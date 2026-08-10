@@ -85,11 +85,96 @@
       </div>
     </div>
 
-    <!-- قسم التراخيص (سيتم استكمال حقوله لاحقًا) -->
+    <!-- قسم التراخيص -->
     <div id="licensesSection" style="display:none">
-      <div class="card empty-state">
-        <div class="icon">📄</div>
-        <span data-i18n="licensesPlaceholder">قسم التراخيص هيتم تجهيزه بمجرد ما نحدد الحقول المطلوبة</span>
+
+      <div class="card" id="licBranchPicker" style="display:none">
+        <div class="eyebrow" data-i18n="viewingBranchEyebrow">اختيار الفرع (حساب المسؤول)</div>
+        <label data-i18n="label_branchNumber">رقم الفرع</label>
+        <input type="text" id="licBranchInput" inputmode="numeric" data-i18n-placeholder="ph_branchNumber" placeholder="مثال: 29">
+        <div class="actions">
+          <button class="btn btn-ghost" id="licLoadBtn" data-i18n="loadBtn">تحميل بيانات الفرع</button>
+        </div>
+      </div>
+
+      <div id="licFormWrap" style="display:none">
+
+        <div class="card">
+          <div class="eyebrow" data-i18n="licSection_official">التراخيص الرسمية</div>
+
+          <label data-i18n="lic_estLicense">ترخيص فتح مؤسسة — رقم الترخيص</label>
+          <input type="text" id="estLicenseNumber">
+          <div class="field-row">
+            <div><label data-i18n="label_issueDate">تاريخ الإصدار</label><input type="date" id="estIssueDate"></div>
+            <div><label data-i18n="label_expiryDate">تاريخ الانتهاء</label><input type="date" id="estExpiryDate"></div>
+          </div>
+          <div class="hint" id="estExpiryBadge"></div>
+
+          <label data-i18n="lic_civilDefense" style="margin-top:20px">ترخيص الدفاع المدني — رقم الترخيص</label>
+          <input type="text" id="civilDefenseNumber">
+          <div class="field-row">
+            <div><label data-i18n="label_issueDate">تاريخ الإصدار</label><input type="date" id="civilDefenseIssueDate"></div>
+            <div><label data-i18n="label_expiryDate">تاريخ الانتهاء</label><input type="date" id="civilDefenseExpiryDate"></div>
+          </div>
+          <div class="hint" id="civilDefenseExpiryBadge"></div>
+
+          <label data-i18n="lic_municipality" style="margin-top:20px">رخصة البلدية — رقم الرخصة الموحد</label>
+          <input type="text" id="municipalityNumber">
+          <label data-i18n="label_expiryDate">تاريخ الانتهاء</label>
+          <input type="date" id="municipalityExpiryDate">
+          <div class="hint" id="municipalityExpiryBadge"></div>
+
+          <label data-i18n="lic_pestContract" style="margin-top:20px">عقد مكافحة حشرات — رقم العقد</label>
+          <input type="text" id="pestContractNumber">
+          <label data-i18n="label_contractDate">تاريخ العقد</label>
+          <input type="date" id="pestContractDate">
+
+          <label data-i18n="lic_wasteContainer" style="margin-top:20px">عقد حاوية نفايات</label>
+          <select id="wasteContainer"><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
+
+          <label data-i18n="lic_zakat" style="margin-top:20px">ترخيص هيئة الزكاة والدخل</label>
+          <select id="zakatLicense"><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
+
+          <label data-i18n="lic_branchCert" style="margin-top:20px">شهادة تسجيل فرع مؤسسة فردية</label>
+          <select id="branchCertExists"><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
+          <div id="branchCertExpiryWrap" style="display:none">
+            <label data-i18n="label_expiryDate">تاريخ الانتهاء</label>
+            <input type="date" id="branchCertExpiryDate">
+            <div class="hint" id="branchCertExpiryBadge"></div>
+          </div>
+
+          <div class="field-row" style="margin-top:20px">
+            <div>
+              <label data-i18n="lic_extinguisherCount">الطفايات — العدد</label>
+              <input type="text" id="extinguisherCount" inputmode="numeric">
+            </div>
+            <div>
+              <label data-i18n="label_expiryDate">تاريخ انتهاء الصلاحية</label>
+              <input type="date" id="extinguisherExpiryDate">
+            </div>
+          </div>
+          <div class="hint" id="extinguisherExpiryBadge"></div>
+        </div>
+
+        <div class="card">
+          <div class="eyebrow" data-i18n="lic_pharmacistLicenses">تراخيص الصيادلة بالفرع</div>
+          <div id="pharmLicensesList"></div>
+          <div class="actions">
+            <button class="btn btn-ghost" id="addPharmLicenseBtn" data-i18n="addPharmLicenseBtn">+ إضافة صيدلي</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="eyebrow" data-i18n="licSection_compliance">عناصر الامتثال والسلامة</div>
+          <div id="boolItemsList"></div>
+        </div>
+
+        <div class="card">
+          <div class="actions">
+            <button class="btn btn-primary btn-block" id="saveLicensesBtn" data-i18n="saveBtn">حفظ البيانات</button>
+          </div>
+          <div class="msg" id="licensesMsg"></div>
+        </div>
       </div>
     </div>
 
@@ -98,7 +183,7 @@
 
 <script type="module">
 import {
-  db, auth, collection, doc, addDoc, getDocs, updateDoc, query, orderBy, where, serverTimestamp,
+  db, auth, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, query, orderBy, where, serverTimestamp,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
 import { initLangToggle, getLang, dict } from "./i18n.js";
@@ -160,6 +245,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     const isRepairs = tab.dataset.tab === 'repairs';
     document.getElementById('repairsSection').style.display = isRepairs ? 'block' : 'none';
     document.getElementById('licensesSection').style.display = isRepairs ? 'none' : 'block';
+    if(!isRepairs) initLicensesTab();
   });
 });
 
@@ -264,6 +350,221 @@ function renderRepairs(){
     </tr>`;
   }).join('');
 }
+
+// ==============================================================
+// قسم التراخيص
+// ==============================================================
+
+const BOOL_ITEMS = [
+  ['insectTrap', 'lic_insectTrap'],
+  ['commRegOnSign', 'lic_commRegOnSign'],
+  ['phoneOnSign', 'lic_phoneOnSign'],
+  ['noSmokingSticker', 'lic_noSmokingSticker'],
+  ['cameraMonitoredSticker', 'lic_cameraMonitoredSticker'],
+  ['pharmacyStamp', 'lic_pharmacyStamp'],
+  ['prescriptionLog', 'lic_prescriptionLog'],
+  ['healthVisitsLog', 'lic_healthVisitsLog'],
+  ['humidityThermometer', 'lic_humidityThermometer'],
+  ['pharmacyThermometer', 'lic_pharmacyThermometer'],
+  ['fridgeThermometer', 'lic_fridgeThermometer'],
+  ['pharmacovigilanceSticker', 'lic_pharmacovigilanceSticker'],
+  ['emergencyNumbersSticker', 'lic_emergencyNumbersSticker'],
+  ['similarDrugSticker', 'lic_similarDrugSticker'],
+  ['antibioticRxOnlySticker', 'lic_antibioticRxOnlySticker'],
+  ['instructionsPrinter', 'lic_instructionsPrinter'],
+  ['workLog', 'lic_workLog'],
+  ['disabledEntrance', 'lic_disabledEntrance'],
+  ['tempRecordSheet', 'lic_tempRecordSheet'],
+  ['sideEffectsReportSticker', 'lic_sideEffectsReportSticker']
+];
+
+let licTargetBranch = null;
+let pharmLicenseCount = 0;
+
+function buildBoolRows(){
+  const t = dict[getLang()];
+  const wrap = document.getElementById('boolItemsList');
+  wrap.innerHTML = BOOL_ITEMS.map(([key, labelKey]) => `
+    <label>${t[labelKey]}</label>
+    <select id="bool_${key}"><option value="no" data-i18n="notExists">${t.notExists}</option><option value="yes" data-i18n="exists">${t.exists}</option></select>
+  `).join('');
+}
+
+function addPharmLicenseRow(data){
+  const t = dict[getLang()];
+  const idx = pharmLicenseCount++;
+  const wrap = document.getElementById('pharmLicensesList');
+  const row = document.createElement('div');
+  row.className = 'card';
+  row.style.background = '#FAF9F5';
+  row.dataset.idx = idx;
+  row.innerHTML = `
+    <label>${t.label_fullName}</label>
+    <input type="text" class="pl-name" value="${data?.name || ''}">
+    <div class="field-row">
+      <div><label>${t.label_issueDate}</label><input type="date" class="pl-issue" value="${data?.issueDate || ''}"></div>
+      <div><label>${t.label_expiryDate}</label><input type="date" class="pl-expiry" value="${data?.expiryDate || ''}"></div>
+    </div>
+    <label>${t.lic_facilityName}</label>
+    <input type="text" class="pl-facility" value="${data?.facilityName || ''}">
+    <div class="hint pl-badge"></div>
+    <div class="actions"><button class="btn btn-ghost pl-remove">${t.removeBtn}</button></div>
+  `;
+  row.querySelector('.pl-remove').addEventListener('click', () => row.remove());
+  row.querySelector('.pl-expiry').addEventListener('change', (e) => {
+    row.querySelector('.pl-badge').innerHTML = expiryBadgeHtml(e.target.value);
+  });
+  if(data?.expiryDate) row.querySelector('.pl-badge').innerHTML = expiryBadgeHtml(data.expiryDate);
+  document.getElementById('pharmLicensesList').appendChild(row);
+}
+
+document.getElementById('addPharmLicenseBtn').addEventListener('click', () => addPharmLicenseRow());
+
+function expiryBadgeHtml(dateStr){
+  const t = dict[getLang()];
+  if(!dateStr) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr);
+  const diffDays = Math.round((d - today) / 86400000);
+  if(diffDays < 0){
+    return `<span style="color:var(--danger);font-weight:700">⚠ ${t.expiredBadge}</span>`;
+  } else if(diffDays <= 30){
+    return `<span style="color:var(--danger);font-weight:700">⚠ ${t.expiringSoonBadge}</span>`;
+  }
+  return `<span style="color:var(--teal)">✓ ${t.validBadge}</span>`;
+}
+
+['estExpiryDate','civilDefenseExpiryDate','municipalityExpiryDate','branchCertExpiryDate','extinguisherExpiryDate'].forEach(id => {
+  document.getElementById(id).addEventListener('change', (e) => {
+    document.getElementById(id.replace('ExpiryDate','') + 'ExpiryBadge').innerHTML = expiryBadgeHtml(e.target.value);
+  });
+});
+
+document.getElementById('branchCertExists').addEventListener('change', (e) => {
+  document.getElementById('branchCertExpiryWrap').style.display = e.target.value === 'yes' ? 'block' : 'none';
+});
+
+document.getElementById('licLoadBtn').addEventListener('click', () => {
+  const b = document.getElementById('licBranchInput').value.trim();
+  if(!b) return;
+  licTargetBranch = b;
+  loadLicenseForm(b);
+});
+
+function initLicensesTab(){
+  buildBoolRows();
+  if(isMainAdmin){
+    document.getElementById('licBranchPicker').style.display = 'block';
+    document.getElementById('licFormWrap').style.display = licTargetBranch ? 'block' : 'none';
+  } else if(myBranchNumber !== null){
+    licTargetBranch = String(myBranchNumber);
+    document.getElementById('licBranchPicker').style.display = 'none';
+    document.getElementById('licFormWrap').style.display = 'block';
+    loadLicenseForm(licTargetBranch);
+  }
+}
+
+async function loadLicenseForm(branchNumber){
+  const snap = await getDoc(doc(db, 'licenses', branchNumber));
+  const d = snap.exists() ? snap.data() : {};
+
+  document.getElementById('estLicenseNumber').value = d.estLicenseNumber || '';
+  document.getElementById('estIssueDate').value = d.estIssueDate || '';
+  document.getElementById('estExpiryDate').value = d.estExpiryDate || '';
+  document.getElementById('estExpiryBadge').innerHTML = expiryBadgeHtml(d.estExpiryDate);
+
+  document.getElementById('civilDefenseNumber').value = d.civilDefenseNumber || '';
+  document.getElementById('civilDefenseIssueDate').value = d.civilDefenseIssueDate || '';
+  document.getElementById('civilDefenseExpiryDate').value = d.civilDefenseExpiryDate || '';
+  document.getElementById('civilDefenseExpiryBadge').innerHTML = expiryBadgeHtml(d.civilDefenseExpiryDate);
+
+  document.getElementById('municipalityNumber').value = d.municipalityNumber || '';
+  document.getElementById('municipalityExpiryDate').value = d.municipalityExpiryDate || '';
+  document.getElementById('municipalityExpiryBadge').innerHTML = expiryBadgeHtml(d.municipalityExpiryDate);
+
+  document.getElementById('pestContractNumber').value = d.pestContractNumber || '';
+  document.getElementById('pestContractDate').value = d.pestContractDate || '';
+
+  document.getElementById('wasteContainer').value = d.wasteContainer || 'no';
+  document.getElementById('zakatLicense').value = d.zakatLicense || 'no';
+
+  document.getElementById('branchCertExists').value = d.branchCertExists || 'no';
+  document.getElementById('branchCertExpiryWrap').style.display = d.branchCertExists === 'yes' ? 'block' : 'none';
+  document.getElementById('branchCertExpiryDate').value = d.branchCertExpiryDate || '';
+  document.getElementById('branchCertExpiryBadge').innerHTML = expiryBadgeHtml(d.branchCertExpiryDate);
+
+  document.getElementById('extinguisherCount').value = d.extinguisherCount || '';
+  document.getElementById('extinguisherExpiryDate').value = d.extinguisherExpiryDate || '';
+  document.getElementById('extinguisherExpiryBadge').innerHTML = expiryBadgeHtml(d.extinguisherExpiryDate);
+
+  BOOL_ITEMS.forEach(([key]) => {
+    const el = document.getElementById('bool_' + key);
+    if(el) el.value = d[key] || 'no';
+  });
+
+  document.getElementById('pharmLicensesList').innerHTML = '';
+  pharmLicenseCount = 0;
+  (d.pharmacistLicenses || []).forEach(p => addPharmLicenseRow(p));
+
+  document.getElementById('licFormWrap').style.display = 'block';
+}
+
+document.getElementById('saveLicensesBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const branchNumber = licTargetBranch || String(myBranchNumber || '');
+  const msgEl = document.getElementById('licensesMsg');
+
+  if(!branchNumber){
+    msgEl.textContent = t.errRequired_branchNumber;
+    msgEl.className = 'msg show err';
+    return;
+  }
+
+  const data = {
+    branchNumber,
+    estLicenseNumber: document.getElementById('estLicenseNumber').value.trim(),
+    estIssueDate: document.getElementById('estIssueDate').value,
+    estExpiryDate: document.getElementById('estExpiryDate').value,
+    civilDefenseNumber: document.getElementById('civilDefenseNumber').value.trim(),
+    civilDefenseIssueDate: document.getElementById('civilDefenseIssueDate').value,
+    civilDefenseExpiryDate: document.getElementById('civilDefenseExpiryDate').value,
+    municipalityNumber: document.getElementById('municipalityNumber').value.trim(),
+    municipalityExpiryDate: document.getElementById('municipalityExpiryDate').value,
+    pestContractNumber: document.getElementById('pestContractNumber').value.trim(),
+    pestContractDate: document.getElementById('pestContractDate').value,
+    wasteContainer: document.getElementById('wasteContainer').value,
+    zakatLicense: document.getElementById('zakatLicense').value,
+    branchCertExists: document.getElementById('branchCertExists').value,
+    branchCertExpiryDate: document.getElementById('branchCertExpiryDate').value,
+    extinguisherCount: document.getElementById('extinguisherCount').value.trim(),
+    extinguisherExpiryDate: document.getElementById('extinguisherExpiryDate').value,
+    pharmacistLicenses: Array.from(document.querySelectorAll('#pharmLicensesList > .card')).map(row => ({
+      name: row.querySelector('.pl-name').value.trim(),
+      issueDate: row.querySelector('.pl-issue').value,
+      expiryDate: row.querySelector('.pl-expiry').value,
+      facilityName: row.querySelector('.pl-facility').value.trim()
+    })),
+    updatedAt: serverTimestamp()
+  };
+
+  BOOL_ITEMS.forEach(([key]) => {
+    data[key] = document.getElementById('bool_' + key).value;
+  });
+
+  const btn = document.getElementById('saveLicensesBtn');
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    await setDoc(doc(db, 'licenses', branchNumber), data);
+    msgEl.textContent = t.successMsg;
+    msgEl.className = 'msg show ok';
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  } finally {
+    btn.disabled = false; btn.textContent = t.saveBtn;
+  }
+});
 </script>
 </body>
 </html>
