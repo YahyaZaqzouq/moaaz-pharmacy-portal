@@ -136,6 +136,15 @@ input[type=text], input[type=tel], input[type=date], select{
   outline:none;
   transition: border-color .15s ease, background .15s ease;
 }
+/* حقول التاريخ بتترسم بشكل مكسور جوه صفحة RTL، فبنجبرها تتصرف LTR جوّاها مع إبقاء المحاذاة يمين */
+input[type=date]{
+  direction: ltr;
+  text-align: right;
+}
+.field-error{
+  border-color: var(--danger) !important;
+  background: rgba(166,64,47,0.05) !important;
+}
 input:focus, select:focus{
   border-color: var(--amber);
   background:#fff;

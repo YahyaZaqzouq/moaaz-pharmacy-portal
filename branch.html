@@ -509,6 +509,17 @@ async function loadLicenseForm(branchNumber){
   document.getElementById('licFormWrap').style.display = 'block';
 }
 
+document.getElementById('licFormWrap').addEventListener('input', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()){
+    e.target.classList.remove('field-error');
+  }
+});
+document.getElementById('licFormWrap').addEventListener('change', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()){
+    e.target.classList.remove('field-error');
+  }
+});
+
 document.getElementById('saveLicensesBtn').addEventListener('click', async () => {
   const t = dict[getLang()];
   const branchNumber = licTargetBranch || String(myBranchNumber || '');
@@ -517,6 +528,48 @@ document.getElementById('saveLicensesBtn').addEventListener('click', async () =>
   if(!branchNumber){
     msgEl.textContent = t.errRequired_branchNumber;
     msgEl.className = 'msg show err';
+    return;
+  }
+
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+
+  const requiredIds = [
+    'estLicenseNumber','estIssueDate','estExpiryDate',
+    'civilDefenseNumber','civilDefenseIssueDate','civilDefenseExpiryDate',
+    'municipalityNumber','municipalityExpiryDate',
+    'pestContractNumber','pestContractDate',
+    'extinguisherCount','extinguisherExpiryDate'
+  ];
+  const missing = [];
+  requiredIds.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el.value.trim()) missing.push(el);
+  });
+
+  if(document.getElementById('branchCertExists').value === 'yes'){
+    const el = document.getElementById('branchCertExpiryDate');
+    if(!el.value.trim()) missing.push(el);
+  }
+
+  const pharmRows = document.querySelectorAll('#pharmLicensesList > .card');
+  if(pharmRows.length === 0){
+    msgEl.textContent = t.errRequired_atLeastOnePharmacist;
+    msgEl.className = 'msg show err';
+    document.getElementById('addPharmLicenseBtn').classList.add('field-error');
+    return;
+  }
+  pharmRows.forEach(row => {
+    ['.pl-name', '.pl-issue', '.pl-expiry', '.pl-facility'].forEach(sel => {
+      const el = row.querySelector(sel);
+      if(!el.value.trim()) missing.push(el);
+    });
+  });
+
+  if(missing.length > 0){
+    msgEl.textContent = t.errRequired_allFields;
+    msgEl.className = 'msg show err';
+    missing.forEach(el => el.classList.add('field-error'));
+    missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
