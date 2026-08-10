@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="title_branch">بيانات الفرع — صيدلية معاذ</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html" data-i18n="backLink">→ رجوع للرئيسية</a>
+
+  <div class="topbar">
+    <div class="cap-badge">🏬</div>
+    <div class="titles">
+      <span class="brand" data-i18n="brand">صيدلية معاذ</span>
+      <h1 class="page-title" data-i18n="pageHeading_branch">بيانات الفرع</h1>
+    </div>
+    <button class="lang-toggle" id="langToggle">English</button>
+  </div>
+
+  <!-- تسجيل الدخول -->
+  <div class="card" id="loginCard">
+    <div class="eyebrow" data-i18n="loginEyebrow_branch">تسجيل دخول مسؤول الفروع</div>
+    <label for="email" data-i18n="label_email">البريد الإلكتروني</label>
+    <input type="text" id="email" placeholder="branch@example.com">
+    <label for="password" data-i18n="label_password">كلمة المرور</label>
+    <input type="text" id="password" data-i18n-placeholder="label_password" placeholder="كلمة المرور" autocomplete="off" style="-webkit-text-security: disc;">
+    <div class="actions">
+      <button class="btn btn-primary btn-block" id="loginBtn" data-i18n="loginBtn">دخول</button>
+    </div>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <!-- المحتوى بعد الدخول -->
+  <div id="dashboard" style="display:none">
+
+    <div class="tabs">
+      <div class="tab active" data-tab="repairs" data-i18n="tab_repairs">الإصلاحات المطلوبة</div>
+      <div class="tab" data-tab="licenses" data-i18n="tab_licenses">التراخيص</div>
+    </div>
+
+    <!-- قسم الإصلاحات -->
+    <div id="repairsSection">
+      <div class="card">
+        <div class="eyebrow" data-i18n="newRepairEyebrow">تسجيل عطل جديد</div>
+
+        <label data-i18n="label_branchNumber">رقم الفرع</label>
+        <input type="text" id="repBranch" inputmode="numeric" data-i18n-placeholder="ph_branchNumber" placeholder="مثال: 29">
+
+        <label data-i18n="label_repairDesc">وصف العطل</label>
+        <input type="text" id="repDesc" data-i18n-placeholder="ph_repairDesc" placeholder="مثال: تكييف الفرع معطل">
+
+        <label data-i18n="label_reportDate">تاريخ البلاغ</label>
+        <input type="date" id="repDate">
+
+        <div class="actions">
+          <button class="btn btn-primary btn-block" id="addRepairBtn" data-i18n="addRepairBtn">إضافة البلاغ</button>
+        </div>
+        <div class="msg" id="repairMsg"></div>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="repairSearch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+        <button class="btn btn-ghost" id="repairRefreshBtn" data-i18n="refreshBtn">تحديث</button>
+        <button class="btn btn-ghost" id="logoutBtn" data-i18n="logoutBtn">خروج</button>
+      </div>
+
+      <div class="table-scroll">
+        <table id="repairsTable">
+          <thead>
+            <tr>
+              <th data-i18n="col_branchNumber">رقم الفرع</th>
+              <th data-i18n="col_repairDesc">وصف العطل</th>
+              <th data-i18n="col_reportDate">تاريخ البلاغ</th>
+              <th data-i18n="col_status">الحالة</th>
+            </tr>
+          </thead>
+          <tbody id="repairsBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="repairsEmpty" style="display:none">
+        <div class="icon">📭</div>
+        <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+      </div>
+    </div>
+
+    <!-- قسم التراخيص (سيتم استكمال حقوله لاحقًا) -->
+    <div id="licensesSection" style="display:none">
+      <div class="card empty-state">
+        <div class="icon">📄</div>
+        <span data-i18n="licensesPlaceholder">قسم التراخيص هيتم تجهيزه بمجرد ما نحدد الحقول المطلوبة</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+import {
+  db, auth, collection, doc, addDoc, getDocs, updateDoc, query, orderBy, where, serverTimestamp,
+  signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "./firebase-config.js";
+import { initLangToggle, getLang, dict } from "./i18n.js";
+
+initLangToggle();
+document.getElementById('langToggle').addEventListener('click', () => renderRepairs());
+
+const loginCard = document.getElementById('loginCard');
+const dashboard = document.getElementById('dashboard');
+const loginMsg = document.getElementById('loginMsg');
+
+const statusKey = { ar: { open: 'تحت الإجراء', done: 'تم الإصلاح' }, en: { open: 'In Progress', done: 'Fixed' } };
+
+let repairsData = [];
+let myBranchNumber = null;
+let isMainAdmin = false;
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  loginMsg.className = 'msg';
+  try{
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch(e){
+    loginMsg.textContent = t.loginError;
+    loginMsg.className = 'msg show err';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, async (user) => {
+  if(user){
+    const tokenResult = await user.getIdTokenResult();
+    myBranchNumber = tokenResult.claims.branchNumber ?? null;
+    isMainAdmin = tokenResult.claims.role === 'admin';
+
+    const repBranchInput = document.getElementById('repBranch');
+    if(myBranchNumber !== null && !isMainAdmin){
+      repBranchInput.value = myBranchNumber;
+      repBranchInput.disabled = true;
+    }
+
+    loginCard.style.display = 'none';
+    dashboard.style.display = 'block';
+    await loadRepairs();
+    renderRepairs();
+  } else {
+    loginCard.style.display = 'block';
+    dashboard.style.display = 'none';
+  }
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    tab.classList.add('active');
+    const isRepairs = tab.dataset.tab === 'repairs';
+    document.getElementById('repairsSection').style.display = isRepairs ? 'block' : 'none';
+    document.getElementById('licensesSection').style.display = isRepairs ? 'none' : 'block';
+  });
+});
+
+document.getElementById('addRepairBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const branchNumber = document.getElementById('repBranch').value.trim();
+  const description = document.getElementById('repDesc').value.trim();
+  const reportDate = document.getElementById('repDate').value;
+
+  const msgEl = document.getElementById('repairMsg');
+  if(!branchNumber || !description || !reportDate){
+    msgEl.textContent = t.errRequired_repair;
+    msgEl.className = 'msg show err';
+    return;
+  }
+
+  const btn = document.getElementById('addRepairBtn');
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    await addDoc(collection(db, 'repairs'), {
+      branchNumber, description, reportDate,
+      status: 'open',
+      createdAt: serverTimestamp()
+    });
+    document.getElementById('repDesc').value = '';
+    document.getElementById('repBranch').value = '';
+    document.getElementById('repDate').value = '';
+    msgEl.textContent = t.successMsg;
+    msgEl.className = 'msg show ok';
+    await loadRepairs();
+    renderRepairs();
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  } finally {
+    btn.disabled = false; btn.textContent = t.addRepairBtn;
+  }
+});
+
+document.getElementById('repairRefreshBtn').addEventListener('click', async () => {
+  await loadRepairs();
+  renderRepairs();
+});
+
+document.getElementById('repairSearch').addEventListener('input', renderRepairs);
+
+async function loadRepairs(){
+  let q;
+  if(isMainAdmin || myBranchNumber === null){
+    q = query(collection(db, 'repairs'), orderBy('reportDate', 'desc'));
+  } else {
+    q = query(collection(db, 'repairs'), where('branchNumber', '==', String(myBranchNumber)));
+  }
+  const snap = await getDocs(q);
+  repairsData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  if(!isMainAdmin && myBranchNumber !== null){
+    repairsData.sort((a,b) => (b.reportDate||'').localeCompare(a.reportDate||''));
+  }
+}
+
+async function toggleStatus(id, currentStatus){
+  const newStatus = currentStatus === 'open' ? 'done' : 'open';
+  await updateDoc(doc(db, 'repairs', id), { status: newStatus });
+  await loadRepairs();
+  renderRepairs();
+}
+window.__toggleRepairStatus = toggleStatus;
+
+function renderRepairs(){
+  const lang = getLang();
+  const t = dict[lang];
+  const q = document.getElementById('repairSearch').value.trim();
+  const data = repairsData.filter(r => !q || (r.description||'').includes(q) || String(r.branchNumber||'').includes(q));
+
+  const body = document.getElementById('repairsBody');
+  const empty = document.getElementById('repairsEmpty');
+  const table = document.getElementById('repairsTable');
+
+  if(data.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  body.innerHTML = data.map(r => {
+    const statusLabel = statusKey[lang][r.status || 'open'];
+    const badgeColor = r.status === 'done' ? 'var(--teal)' : 'var(--amber)';
+    return `<tr>
+      <td>${r.branchNumber || ''}</td>
+      <td>${r.description || ''}</td>
+      <td>${r.reportDate || ''}</td>
+      <td>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px;border-color:${badgeColor};color:${badgeColor}"
+          onclick="window.__toggleRepairStatus('${r.id}','${r.status || 'open'}')">
+          ${statusLabel}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

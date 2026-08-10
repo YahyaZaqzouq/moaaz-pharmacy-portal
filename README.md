@@ -68,3 +68,95 @@ firebase deploy
 - **المسؤول:** بيسجل دخول بالإيميل والباسورد اللي عملته في خطوة 1، وبيقدر يشوف الصيادلة والعمال، يبحث بالاسم أو رقم الفرع، ويصدّر Excel بضغطة زرار.
 - **بيانات الفروع والإصلاحات:** لسه معمولاش، هنضيفها في مرحلة تانية.
 - الباقة المجانية من Firebase (Spark) بتكفي بيانات فرع صيدلية بالحجم ده براحة.
+
+---
+
+## تحديث: تبويب "بيانات الفرع"
+
+أُضيف ملف `branch.html` بتسجيل دخول منفصل (حساب "مسؤول الفروع")، وفيه قسم "الإصلاحات المطلوبة" شغال بالكامل، وقسم "التراخيص" جاهز شكليًا وهيتم استكمال حقوله لاحقًا.
+
+### خطوة إضافية 1: حسابات مسؤولي الفروع
+بدل ما تعمل حساب واحد يدوي، هنعمل الـ46 حساب (لكل فرع) دفعة واحدة بسكريبت — التفاصيل في قسم "46 حساب فرع دفعة واحدة" تحت.
+
+### خطوة إضافية 2: تحديث قواعد الأمان (استبدل القواعد بالكامل)
+
+في **Firestore Database → Rules**، امسح القواعد القديمة كلها وحط بدالها القواعد النهائية دي:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /pharmacists/{docId} {
+      allow read: if request.auth != null && request.auth.token.role == 'admin';
+      allow write: if true;
+    }
+
+    match /workers/{docId} {
+      allow read: if request.auth != null && request.auth.token.role == 'admin';
+      allow write: if true;
+    }
+
+    match /repairs/{docId} {
+      allow read, update: if request.auth != null && (
+        request.auth.token.role == 'admin' ||
+        (request.auth.token.branchNumber != null &&
+         string(request.auth.token.branchNumber) == resource.data.branchNumber)
+      );
+      allow create: if request.auth != null && (
+        request.auth.token.role == 'admin' ||
+        (request.auth.token.branchNumber != null &&
+         string(request.auth.token.branchNumber) == request.resource.data.branchNumber)
+      );
+    }
+
+    match /licenses/{docId} {
+      allow read: if request.auth != null && (
+        request.auth.token.role == 'admin' ||
+        (request.auth.token.branchNumber != null &&
+         string(request.auth.token.branchNumber) == resource.data.branchNumber)
+      );
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'admin' ||
+        (request.auth.token.branchNumber != null &&
+         string(request.auth.token.branchNumber) == request.resource.data.branchNumber)
+      );
+    }
+
+  }
+}
+```
+
+**معنى القواعد الجديدة:**
+- **الصيادلة/العمال:** أي حد (حتى بدون تسجيل دخول) يقدر يكتب بياناته. القراءة الكاملة مقصورة على حساب المسؤول الأساسي بس (اللي عنده `role: admin`) — حسابات الفروع مش هتقدر تشوفها خالص.
+- **الإصلاحات والتراخيص:** كل حساب فرع يشوف ويعدّل بيانات فرعه هو بس (بناءً على `branchNumber` المربوط بحسابه). حساب المسؤول الأساسي يشوف الكل.
+
+---
+
+## تحديث: 46 حساب فرع دفعة واحدة
+
+بدل ما تعمل 46 حساب يدوي من الموقع (ومستحيل تظبط الصلاحيات الدقيقة دي يدويًا أصلاً)، جهزتلك سكريبت بيعملهم كلهم مرة واحدة، وملف Excel فيه كل بيانات الدخول محفوظة عندك.
+
+### الملفات
+- `branch-accounts-setup/create-branch-users.js` — السكريبت اللي بيعمل الحسابات
+- `branch-accounts-setup/branch_accounts.json` — بيانات الـ46 فرع (يوزر نيم، إيميل، باسورد)
+- `بيانات_دخول_الفروع.xlsx` — نفس البيانات في جدول Excel للحفظ والرجوع ليه وقت الحاجة
+
+### طريقة التشغيل (محتاجة جهاز كمبيوتر فيه Node.js، مش من الموبايل)
+1. من Firebase Console: **⚙️ Project settings → Service accounts → Generate new private key**، ونزّل الملف واحفظه باسم `service-account.json` جوه فولدر `branch-accounts-setup`
+2. افتح ملف `create-branch-users.js` وغيّر السطر:
+   `const MAIN_ADMIN_EMAIL = 'REPLACE_WITH_MAIN_ADMIN_EMAIL';`
+   وحط مكانه إيميل حساب المسؤول الأساسي بتاعك بالظبط (اللي عملته قبل كده)
+3. من الـ Terminal جوه فولدر `branch-accounts-setup`:
+   ```bash
+   npm install firebase-admin
+   node create-branch-users.js
+   ```
+4. السكريبت هيطبعلك ✓ لكل فرع اتعمل بنجاح، و✗ لو فيه مشكلة في حساب معين
+
+### اليوزر نيم بتاع كل فرع
+كل فرع بيدخل بالإيميل (مش اليوزرنيم البسيط، لأن Firebase محتاج صيغة إيميل) بالشكل:
+`moaz1@moazportal.com`, `moaz2@moazportal.com`, ... لحد `moaz46@moazportal.com`
+وكلمة المرور موجودة قدام كل فرع في ملف Excel.
+
+**ملاحظة أمان:** الباسوردات دي عشوائية وقوية، احتفظ بملف الـ Excel في مكان آمن ومتشاركوش إلا مع الشخص المسؤول عن كل فرع.
