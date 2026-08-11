@@ -9,6 +9,8 @@ export const dict = {
     brand: "صيدلية معاذ",
     backLink: "→ رجوع للرئيسية",
     langToggle: "English",
+    loggedInPrefix: "✓ تم تسجيل الدخول:",
+    branchLabel: "فرع",
 
     // الصفحة الرئيسية
     title_index: "بوابة بيانات الفروع — صيدلية معاذ",
@@ -170,6 +172,8 @@ export const dict = {
     brand: "Moaz Pharmacy",
     backLink: "← Back to Home",
     langToggle: "العربية",
+    loggedInPrefix: "✓ Logged in:",
+    branchLabel: "Branch",
 
     title_index: "Branch Data Portal — Moaz Pharmacy",
     portalTitle: "Branch Data Portal",
