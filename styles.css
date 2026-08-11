@@ -179,6 +179,12 @@ input[type=date]{
   border-color: var(--danger) !important;
   background: rgba(166,64,47,0.05) !important;
 }
+.bool-select.is-no{
+  border-color: var(--danger) !important;
+  background: rgba(166,64,47,0.06) !important;
+  color: var(--danger);
+  font-weight: 600;
+}
 input:focus, select:focus{
   border-color: var(--amber);
   background:#fff;

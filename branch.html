@@ -161,13 +161,13 @@
           <input type="date" id="pestContractDate">
 
           <label data-i18n="lic_wasteContainer" style="margin-top:20px">عقد حاوية نفايات</label>
-          <select id="wasteContainer"><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
+          <select id="wasteContainer" class="bool-select"><option value="" data-i18n="chooseOption">اختر...</option><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
 
           <label data-i18n="lic_zakat" style="margin-top:20px">ترخيص هيئة الزكاة والدخل</label>
-          <select id="zakatLicense"><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
+          <select id="zakatLicense" class="bool-select"><option value="" data-i18n="chooseOption">اختر...</option><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
 
           <label data-i18n="lic_branchCert" style="margin-top:20px">شهادة تسجيل فرع مؤسسة فردية</label>
-          <select id="branchCertExists"><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
+          <select id="branchCertExists" class="bool-select"><option value="" data-i18n="chooseOption">اختر...</option><option value="no" data-i18n="notExists">لا يوجد</option><option value="yes" data-i18n="exists">يوجد</option></select>
           <div id="branchCertExpiryWrap" style="display:none">
             <label data-i18n="label_expiryDate">تاريخ الانتهاء</label>
             <input type="date" id="branchCertExpiryDate">
@@ -441,9 +441,24 @@ function buildBoolRows(){
   const wrap = document.getElementById('boolItemsList');
   wrap.innerHTML = BOOL_ITEMS.map(([key, labelKey]) => `
     <label>${t[labelKey]}</label>
-    <select id="bool_${key}"><option value="no" data-i18n="notExists">${t.notExists}</option><option value="yes" data-i18n="exists">${t.exists}</option></select>
+    <select id="bool_${key}" class="bool-select">
+      <option value="" data-i18n="chooseOption">${t.chooseOption}</option>
+      <option value="no" data-i18n="notExists">${t.notExists}</option>
+      <option value="yes" data-i18n="exists">${t.exists}</option>
+    </select>
   `).join('');
+  wrap.querySelectorAll('.bool-select').forEach(applyBoolSelectStyle);
 }
+
+function applyBoolSelectStyle(select){
+  select.classList.toggle('is-no', select.value === 'no');
+  select.addEventListener('change', () => {
+    select.classList.toggle('is-no', select.value === 'no');
+    if(select.value) select.classList.remove('field-error');
+  });
+}
+
+document.querySelectorAll('#wasteContainer, #zakatLicense, #branchCertExists').forEach(applyBoolSelectStyle);
 
 function addPharmLicenseRow(data){
   const t = dict[getLang()];
@@ -543,10 +558,10 @@ async function loadLicenseForm(branchNumber){
   document.getElementById('pestContractNumber').value = d.pestContractNumber || '';
   document.getElementById('pestContractDate').value = d.pestContractDate || '';
 
-  document.getElementById('wasteContainer').value = d.wasteContainer || 'no';
-  document.getElementById('zakatLicense').value = d.zakatLicense || 'no';
+  document.getElementById('wasteContainer').value = d.wasteContainer || '';
+  document.getElementById('zakatLicense').value = d.zakatLicense || '';
 
-  document.getElementById('branchCertExists').value = d.branchCertExists || 'no';
+  document.getElementById('branchCertExists').value = d.branchCertExists || '';
   document.getElementById('branchCertExpiryWrap').style.display = d.branchCertExists === 'yes' ? 'block' : 'none';
   document.getElementById('branchCertExpiryDate').value = d.branchCertExpiryDate || '';
   document.getElementById('branchCertExpiryBadge').innerHTML = expiryBadgeHtml(d.branchCertExpiryDate);
@@ -557,8 +572,9 @@ async function loadLicenseForm(branchNumber){
 
   BOOL_ITEMS.forEach(([key]) => {
     const el = document.getElementById('bool_' + key);
-    if(el) el.value = d[key] || 'no';
+    if(el) el.value = d[key] || '';
   });
+  document.querySelectorAll('#wasteContainer, #zakatLicense, #branchCertExists, .bool-select').forEach(applyBoolSelectStyle);
 
   document.getElementById('pharmLicensesList').innerHTML = '';
   pharmLicenseCount = 0;
@@ -602,6 +618,15 @@ document.getElementById('saveLicensesBtn').addEventListener('click', async () =>
   requiredIds.forEach(id => {
     const el = document.getElementById(id);
     if(!el.value.trim()) missing.push(el);
+  });
+
+  ['wasteContainer','zakatLicense','branchCertExists'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el.value) missing.push(el);
+  });
+  BOOL_ITEMS.forEach(([key]) => {
+    const el = document.getElementById('bool_' + key);
+    if(el && !el.value) missing.push(el);
   });
 
   if(document.getElementById('branchCertExists').value === 'yes'){
