@@ -40,6 +40,8 @@
       <div class="stat"><div class="num" id="statPharm">—</div><div class="lbl" data-i18n="statPharm">عدد الصيادلة</div></div>
       <div class="stat"><div class="num" id="statWork">—</div><div class="lbl" data-i18n="statWork">عدد العمال</div></div>
       <div class="stat"><div class="num" id="statBranches">—</div><div class="lbl" data-i18n="statBranches">عدد الفروع المختلفة</div></div>
+      <div class="stat"><div class="num" id="statOpenRepairs">—</div><div class="lbl" data-i18n="statOpenRepairs">بلاغات مفتوحة</div></div>
+      <div class="stat"><div class="num" id="statLicenseAlerts" style="color:var(--danger)">—</div><div class="lbl" data-i18n="statLicenseAlerts">فروع محتاجة مراجعة تراخيص</div></div>
     </div>
 
     <div class="tabs">
@@ -67,11 +69,24 @@
     </div>
   </div>
 
+  <!-- نافذة التعديل -->
+  <div id="editOverlay" style="display:none; position:fixed; inset:0; background:rgba(22,48,43,0.45); z-index:50; align-items:center; justify-content:center; padding:20px;">
+    <div class="card" style="max-width:480px; width:100%; max-height:85vh; overflow-y:auto; margin-bottom:0;">
+      <div class="eyebrow" data-i18n="editRecordEyebrow">تعديل السجل</div>
+      <div id="editFormFields"></div>
+      <div class="actions">
+        <button class="btn btn-primary" id="editSaveBtn" data-i18n="saveBtn">حفظ البيانات</button>
+        <button class="btn btn-ghost" id="editCancelBtn" data-i18n="cancelBtn">إلغاء</button>
+      </div>
+      <div class="msg" id="editMsg"></div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
 import {
-  db, auth, collection, getDocs,
+  db, auth, collection, doc, setDoc, deleteDoc, getDocs,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
 import { initLangToggle, getLang, dict } from "./i18n.js";
@@ -137,17 +152,42 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 async function loadData(){
-  const [pSnap, wSnap] = await Promise.all([
+  const [pSnap, wSnap, rSnap, lSnap] = await Promise.all([
     getDocs(collection(db, 'pharmacists')),
-    getDocs(collection(db, 'workers'))
+    getDocs(collection(db, 'workers')),
+    getDocs(collection(db, 'repairs')),
+    getDocs(collection(db, 'licenses'))
   ]);
   pharmacistsData = pSnap.docs.map(d => d.data());
   workersData = wSnap.docs.map(d => d.data());
+  const repairsData = rSnap.docs.map(d => d.data());
+  const licensesData = lSnap.docs.map(d => d.data());
 
   document.getElementById('statPharm').textContent = pharmacistsData.length;
   document.getElementById('statWork').textContent = workersData.length;
   const branches = new Set([...pharmacistsData, ...workersData].map(r => r.branchNumber).filter(Boolean));
   document.getElementById('statBranches').textContent = branches.size;
+
+  const openRepairs = repairsData.filter(r => (r.status || 'open') === 'open').length;
+  document.getElementById('statOpenRepairs').textContent = openRepairs;
+
+  const alertingBranches = licensesData.filter(licenseHasAlert).length;
+  document.getElementById('statLicenseAlerts').textContent = alertingBranches;
+}
+
+function isDateAlerting(dateStr){
+  if(!dateStr) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr);
+  const diffDays = Math.round((d - today) / 86400000);
+  return diffDays <= 30;
+}
+
+function licenseHasAlert(lic){
+  const fields = [lic.estExpiryDate, lic.civilDefenseExpiryDate, lic.municipalityExpiryDate, lic.extinguisherExpiryDate];
+  if(lic.branchCertExists === 'yes') fields.push(lic.branchCertExpiryDate);
+  (lic.pharmacistLicenses || []).forEach(p => fields.push(p.expiryDate));
+  return fields.some(isDateAlerting);
 }
 
 document.getElementById('refreshBtn').addEventListener('click', async () => {
@@ -177,11 +217,12 @@ function currentData(){
 }
 
 function renderTable(){
+  const t = dict[getLang()];
   const cols = columns()[currentTab];
   const data = currentData();
 
   const head = document.getElementById('tableHead');
-  head.innerHTML = cols.map(([,label]) => `<th>${label}</th>`).join('');
+  head.innerHTML = cols.map(([,label]) => `<th>${label}</th>`).join('') + `<th>${t.col_actions}</th>`;
 
   const body = document.getElementById('tableBody');
   const emptyState = document.getElementById('emptyState');
@@ -197,9 +238,102 @@ function renderTable(){
   document.getElementById('dataTable').style.display = 'table';
 
   body.innerHTML = data.map(row =>
-    '<tr>' + cols.map(([key]) => `<td>${row[key] ?? ''}</td>`).join('') + '</tr>'
+    '<tr>' + cols.map(([key]) => `<td>${row[key] ?? ''}</td>`).join('') +
+    `<td style="white-space:nowrap">
+       <button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px" onclick="window.__editRecord('${row.idNumber}')">${t.editBtn}</button>
+       <button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px;border-color:var(--danger);color:var(--danger)" onclick="window.__deleteRecord('${row.idNumber}')">${t.deleteBtn}</button>
+     </td></tr>`
   ).join('');
 }
+
+// ==============================================================
+// تعديل وحذف السجلات
+// ==============================================================
+
+const FIELD_DEFS = {
+  pharmacists: [
+    ['fullName', 'text', 'label_fullName'],
+    ['nationality', 'text', 'label_nationality'],
+    ['branchNumber', 'text', 'label_branchNumber'],
+    ['licenseNumber', 'text', 'label_licenseNumber'],
+    ['licenseExpiry', 'date', 'label_licenseExpiry'],
+    ['mobile', 'text', 'label_mobile'],
+    ['workHours', 'text', 'label_workHours']
+  ],
+  workers: [
+    ['fullName', 'text', 'label_fullName'],
+    ['idExpiry', 'date', 'label_idExpiry'],
+    ['branchNumber', 'text', 'label_branchNumber'],
+    ['mobile', 'text', 'label_mobile'],
+    ['sponsor', 'select', 'label_sponsor'],
+    ['sponsorOther', 'text', 'label_sponsorOther']
+  ]
+};
+
+let editingId = null;
+
+window.__editRecord = function(idNumber){
+  const t = dict[getLang()];
+  const raw = currentTab === 'pharmacists' ? pharmacistsData : workersData;
+  const record = raw.find(r => r.idNumber === idNumber);
+  if(!record) return;
+  editingId = idNumber;
+
+  const fields = FIELD_DEFS[currentTab];
+  const wrap = document.getElementById('editFormFields');
+  wrap.innerHTML = `<label>${t.label_idNumber}</label><input type="text" value="${idNumber}" disabled>` +
+    fields.map(([key, type, labelKey]) => {
+      if(type === 'select'){
+        const opts = [['معاذ','sponsor_moaz'],['شمائل الحجاز','sponsor_shamail'],['اخر','sponsor_other']];
+        return `<label>${t[labelKey]}</label><select id="edit_${key}">` +
+          opts.map(([val, lk]) => `<option value="${val}" ${record[key]===val?'selected':''}>${t[lk]}</option>`).join('') +
+          `</select>`;
+      }
+      return `<label>${t[labelKey]}</label><input type="${type}" id="edit_${key}" value="${record[key] || ''}">`;
+    }).join('');
+
+  document.getElementById('editMsg').className = 'msg';
+  document.getElementById('editOverlay').style.display = 'flex';
+};
+
+document.getElementById('editCancelBtn').addEventListener('click', () => {
+  document.getElementById('editOverlay').style.display = 'none';
+  editingId = null;
+});
+
+document.getElementById('editSaveBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const msgEl = document.getElementById('editMsg');
+  const fields = FIELD_DEFS[currentTab];
+  const data = {};
+  fields.forEach(([key]) => {
+    data[key] = document.getElementById('edit_' + key).value.trim();
+  });
+
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    await setDoc(doc(db, currentTab, editingId), data, { merge: true });
+    document.getElementById('editOverlay').style.display = 'none';
+    editingId = null;
+    await loadData();
+    renderTable();
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  } finally {
+    btn.disabled = false; btn.textContent = t.saveBtn;
+  }
+});
+
+window.__deleteRecord = async function(idNumber){
+  const t = dict[getLang()];
+  if(!confirm(t.confirmDeleteRecord)) return;
+  await deleteDoc(doc(db, currentTab, idNumber));
+  await loadData();
+  renderTable();
+};
 
 document.getElementById('exportBtn').addEventListener('click', () => {
   const t = dict[getLang()];

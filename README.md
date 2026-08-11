@@ -89,12 +89,14 @@ service cloud.firestore {
 
     match /pharmacists/{docId} {
       allow read: if request.auth != null && request.auth.token.role == 'admin';
-      allow write: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null && request.auth.token.role == 'admin';
     }
 
     match /workers/{docId} {
       allow read: if request.auth != null && request.auth.token.role == 'admin';
-      allow write: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null && request.auth.token.role == 'admin';
     }
 
     match /repairs/{docId} {
@@ -129,8 +131,9 @@ service cloud.firestore {
 ```
 
 **معنى القواعد الجديدة:**
-- **الصيادلة/العمال:** أي حد (حتى بدون تسجيل دخول) يقدر يكتب بياناته. القراءة الكاملة مقصورة على حساب المسؤول الأساسي بس (اللي عنده `role: admin`) — حسابات الفروع مش هتقدر تشوفها خالص.
-- **الإصلاحات والتراخيص:** كل حساب فرع يشوف ويعدّل بيانات فرعه هو بس (بناءً على `branchNumber` المربوط بحسابه). حساب المسؤول الأساسي يشوف الكل.
+- **الصيادلة/العمال:** أي حد (حتى بدون تسجيل دخول) يقدر يكتب بياناته أو يعدّلها (create/update). **الحذف مقصور على المسؤول الأساسي بس**. القراءة الكاملة مقصورة على حساب المسؤول الأساسي بس (اللي عنده `role: admin`) — حسابات الفروع مش هتقدر تشوفها خالص.
+- **الإصلاحات:** كل حساب فرع يشوف ويعدّل بيانات فرعه هو بس (بناءً على `branchNumber` المربوط بحسابه). حساب المسؤول الأساسي يشوف الكل، وهو الوحيد اللي يقدر يحذف.
+- **التراخيص:** نفس مبدأ الإصلاحات — كل فرع يشوف ويعدّل بياناته هو بس، والمسؤول الأساسي يشوف الكل.
 
 ---
 

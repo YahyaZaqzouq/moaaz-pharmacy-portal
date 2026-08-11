@@ -62,6 +62,7 @@
 
       <div class="toolbar">
         <input type="text" id="repairSearch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+        <button class="btn btn-ghost" id="repairExportBtn" data-i18n="exportBtn">تصدير Excel</button>
         <button class="btn btn-ghost" id="repairRefreshBtn" data-i18n="refreshBtn">تحديث</button>
         <button class="btn btn-ghost" id="logoutBtn" data-i18n="logoutBtn">خروج</button>
       </div>
@@ -329,6 +330,22 @@ document.getElementById('addRepairBtn').addEventListener('click', async () => {
 document.getElementById('repairRefreshBtn').addEventListener('click', async () => {
   await loadRepairs();
   renderRepairs();
+});
+
+document.getElementById('repairExportBtn').addEventListener('click', () => {
+  const t = dict[getLang()];
+  const lang = getLang();
+  const rows = repairsData.map(r => ({
+    [t.col_branchNumber]: r.branchNumber || '',
+    [t.col_repairDesc]: r.description || '',
+    [t.col_reportDate]: r.reportDate || '',
+    [t.col_reportTime]: r.reportTime || '',
+    [t.col_status]: statusKey[lang][r.status || 'open']
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, t.tab_repairs);
+  XLSX.writeFile(wb, (lang === 'ar' ? 'الإصلاحات_المطلوبة' : 'required_repairs') + '.xlsx');
 });
 
 document.getElementById('repairSearch').addEventListener('input', renderRepairs);
