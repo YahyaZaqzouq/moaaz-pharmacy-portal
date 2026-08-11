@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="title_branch">بيانات الفرع — صيدلية معاذ</title>
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -89,8 +90,37 @@
     <!-- قسم التراخيص -->
     <div id="licensesSection" style="display:none">
 
+      <div class="card" id="licOverviewCard" style="display:none">
+        <div class="eyebrow" data-i18n="licOverviewEyebrow">تراخيص كل الفروع</div>
+        <div class="toolbar">
+          <input type="text" id="licSearch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+          <button class="btn btn-ghost" id="licExportBtn" data-i18n="exportBtn">تصدير Excel</button>
+          <button class="btn btn-ghost" id="licRefreshBtn" data-i18n="refreshBtn">تحديث</button>
+        </div>
+        <div class="table-scroll">
+          <table id="licOverviewTable">
+            <thead>
+              <tr>
+                <th data-i18n="col_branchNumber">رقم الفرع</th>
+                <th data-i18n="lic_estLicenseShort">ترخيص المؤسسة</th>
+                <th data-i18n="lic_civilDefenseShort">الدفاع المدني</th>
+                <th data-i18n="lic_municipalityShort">البلدية</th>
+                <th data-i18n="lic_extinguisherShort">الطفايات</th>
+                <th data-i18n="lic_pharmacistCountShort">عدد الصيادلة</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="licOverviewBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="licOverviewEmpty" style="display:none">
+          <div class="icon">📭</div>
+          <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+        </div>
+      </div>
+
       <div class="card" id="licBranchPicker" style="display:none">
-        <div class="eyebrow" data-i18n="viewingBranchEyebrow">اختيار الفرع (حساب المسؤول)</div>
+        <div class="eyebrow" data-i18n="editBranchEyebrow">تعديل بيانات فرع معيّن</div>
         <label data-i18n="label_branchNumber">رقم الفرع</label>
         <input type="text" id="licBranchInput" inputmode="numeric" data-i18n-placeholder="ph_branchNumber" placeholder="مثال: 29">
         <div class="actions">
@@ -479,10 +509,13 @@ document.getElementById('licLoadBtn').addEventListener('click', () => {
 function initLicensesTab(){
   buildBoolRows();
   if(isMainAdmin){
+    document.getElementById('licOverviewCard').style.display = 'block';
     document.getElementById('licBranchPicker').style.display = 'block';
     document.getElementById('licFormWrap').style.display = licTargetBranch ? 'block' : 'none';
+    loadLicensesOverview();
   } else if(myBranchNumber !== null){
     licTargetBranch = String(myBranchNumber);
+    document.getElementById('licOverviewCard').style.display = 'none';
     document.getElementById('licBranchPicker').style.display = 'none';
     document.getElementById('licFormWrap').style.display = 'block';
     loadLicenseForm(licTargetBranch);
@@ -642,6 +675,102 @@ document.getElementById('saveLicensesBtn').addEventListener('click', async () =>
   } finally {
     btn.disabled = false; btn.textContent = t.saveBtn;
   }
+});
+
+// ==============================================================
+// عرض تراخيص كل الفروع للمسؤول + تصدير Excel
+// ==============================================================
+
+let allLicensesData = [];
+
+async function loadLicensesOverview(){
+  const snap = await getDocs(collection(db, 'licenses'));
+  allLicensesData = snap.docs.map(d => d.data());
+  allLicensesData.sort((a,b) => Number(a.branchNumber) - Number(b.branchNumber));
+  renderLicensesOverview();
+}
+
+document.getElementById('licRefreshBtn').addEventListener('click', loadLicensesOverview);
+document.getElementById('licSearch').addEventListener('input', renderLicensesOverview);
+
+function shortLicenseCell(number, expiry){
+  if(!number && !expiry) return '<span style="color:#9A9585">—</span>';
+  const badge = expiryBadgeHtml(expiry);
+  return `${number || ''}<br>${badge}`;
+}
+
+function renderLicensesOverview(){
+  const t = dict[getLang()];
+  const q = document.getElementById('licSearch').value.trim();
+  const data = allLicensesData.filter(r => !q || String(r.branchNumber||'').includes(q));
+
+  const body = document.getElementById('licOverviewBody');
+  const empty = document.getElementById('licOverviewEmpty');
+  const table = document.getElementById('licOverviewTable');
+
+  if(data.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  body.innerHTML = data.map(r => `
+    <tr>
+      <td>${r.branchNumber || ''}</td>
+      <td>${shortLicenseCell(r.estLicenseNumber, r.estExpiryDate)}</td>
+      <td>${shortLicenseCell(r.civilDefenseNumber, r.civilDefenseExpiryDate)}</td>
+      <td>${shortLicenseCell(r.municipalityNumber, r.municipalityExpiryDate)}</td>
+      <td>${shortLicenseCell(r.extinguisherCount, r.extinguisherExpiryDate)}</td>
+      <td>${(r.pharmacistLicenses || []).length}</td>
+      <td><button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px" onclick="window.__editBranchLicense('${r.branchNumber}')">${t.editBtn}</button></td>
+    </tr>
+  `).join('');
+}
+
+window.__editBranchLicense = function(branchNumber){
+  licTargetBranch = branchNumber;
+  document.getElementById('licBranchInput').value = branchNumber;
+  loadLicenseForm(branchNumber);
+  document.getElementById('licFormWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+document.getElementById('licExportBtn').addEventListener('click', () => {
+  const t = dict[getLang()];
+
+  const mainRows = allLicensesData.map(r => ({
+    [t.col_branchNumber]: r.branchNumber || '',
+    [t.lic_estLicense]: r.estLicenseNumber || '', [t.label_issueDate + ' 1']: r.estIssueDate || '', [t.label_expiryDate + ' 1']: r.estExpiryDate || '',
+    [t.lic_civilDefense]: r.civilDefenseNumber || '', [t.label_issueDate + ' 2']: r.civilDefenseIssueDate || '', [t.label_expiryDate + ' 2']: r.civilDefenseExpiryDate || '',
+    [t.lic_municipality]: r.municipalityNumber || '', [t.label_expiryDate + ' 3']: r.municipalityExpiryDate || '',
+    [t.lic_pestContract]: r.pestContractNumber || '', [t.label_contractDate]: r.pestContractDate || '',
+    [t.lic_wasteContainer]: r.wasteContainer === 'yes' ? t.exists : t.notExists,
+    [t.lic_zakat]: r.zakatLicense === 'yes' ? t.exists : t.notExists,
+    [t.lic_branchCert]: r.branchCertExists === 'yes' ? t.exists : t.notExists,
+    [t.label_expiryDate + ' 4']: r.branchCertExpiryDate || '',
+    [t.lic_extinguisherCount]: r.extinguisherCount || '', [t.label_expiryDate + ' 5']: r.extinguisherExpiryDate || '',
+    ...Object.fromEntries(BOOL_ITEMS.map(([key, labelKey]) => [t[labelKey], r[key] === 'yes' ? t.exists : t.notExists]))
+  }));
+
+  const pharmRows = [];
+  allLicensesData.forEach(r => {
+    (r.pharmacistLicenses || []).forEach(p => {
+      pharmRows.push({
+        [t.col_branchNumber]: r.branchNumber || '',
+        [t.label_fullName]: p.name || '',
+        [t.label_issueDate]: p.issueDate || '',
+        [t.label_expiryDate]: p.expiryDate || '',
+        [t.lic_facilityName]: p.facilityName || ''
+      });
+    });
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mainRows), t.licSection_official);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pharmRows), t.lic_pharmacistLicenses);
+  XLSX.writeFile(wb, 'التراخيص.xlsx');
 });
 </script>
 </body>
