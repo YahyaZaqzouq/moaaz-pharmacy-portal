@@ -238,8 +238,8 @@ function renderTable(){
   document.getElementById('dataTable').style.display = 'table';
 
   body.innerHTML = data.map(row =>
-    '<tr>' + cols.map(([key]) => `<td>${row[key] ?? ''}</td>`).join('') +
-    `<td style="white-space:nowrap">
+    '<tr>' + cols.map(([key,label]) => `<td data-label="${label}">${row[key] ?? ''}</td>`).join('') +
+    `<td data-label="${t.col_actions}" style="white-space:nowrap">
        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px" onclick="window.__editRecord('${row.idNumber}')">${t.editBtn}</button>
        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px;border-color:var(--danger);color:var(--danger)" onclick="window.__deleteRecord('${row.idNumber}')">${t.deleteBtn}</button>
      </td></tr>`

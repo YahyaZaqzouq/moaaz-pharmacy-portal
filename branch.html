@@ -404,14 +404,14 @@ function renderRepairs(){
     const statusLabel = statusKey[lang][r.status || 'open'];
     const badgeColor = r.status === 'done' ? 'var(--teal)' : 'var(--amber)';
     const deleteCell = isMainAdmin
-      ? `<td><button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px;border-color:var(--danger);color:var(--danger)" onclick="window.__deleteRepair('${r.id}')">${t.deleteBtn}</button></td>`
+      ? `<td data-label="${t.col_delete}"><button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px;border-color:var(--danger);color:var(--danger)" onclick="window.__deleteRepair('${r.id}')">${t.deleteBtn}</button></td>`
       : '';
     return `<tr>
-      <td>${r.branchNumber || ''}</td>
-      <td>${r.description || ''}</td>
-      <td>${r.reportDate || ''}</td>
-      <td>${r.reportTime || ''}</td>
-      <td>
+      <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
+      <td data-label="${t.col_repairDesc}">${r.description || ''}</td>
+      <td data-label="${t.col_reportDate}">${r.reportDate || ''}</td>
+      <td data-label="${t.col_reportTime}">${r.reportTime || ''}</td>
+      <td data-label="${t.col_status}">
         <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px;border-color:${badgeColor};color:${badgeColor}"
           onclick="window.__toggleRepairStatus('${r.id}','${r.status || 'open'}')">
           ${statusLabel}
@@ -761,12 +761,12 @@ function renderLicensesOverview(){
 
   body.innerHTML = data.map(r => `
     <tr>
-      <td>${r.branchNumber || ''}</td>
-      <td>${shortLicenseCell(r.estLicenseNumber, r.estExpiryDate)}</td>
-      <td>${shortLicenseCell(r.civilDefenseNumber, r.civilDefenseExpiryDate)}</td>
-      <td>${shortLicenseCell(r.municipalityNumber, r.municipalityExpiryDate)}</td>
-      <td>${shortLicenseCell(r.extinguisherCount, r.extinguisherExpiryDate)}</td>
-      <td>${(r.pharmacistLicenses || []).length}</td>
+      <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
+      <td data-label="${t.lic_estLicenseShort}">${shortLicenseCell(r.estLicenseNumber, r.estExpiryDate)}</td>
+      <td data-label="${t.lic_civilDefenseShort}">${shortLicenseCell(r.civilDefenseNumber, r.civilDefenseExpiryDate)}</td>
+      <td data-label="${t.lic_municipalityShort}">${shortLicenseCell(r.municipalityNumber, r.municipalityExpiryDate)}</td>
+      <td data-label="${t.lic_extinguisherShort}">${shortLicenseCell(r.extinguisherCount, r.extinguisherExpiryDate)}</td>
+      <td data-label="${t.lic_pharmacistCountShort}">${(r.pharmacistLicenses || []).length}</td>
       <td><button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px" onclick="window.__editBranchLicense('${r.branchNumber}')">${t.editBtn}</button></td>
     </tr>
   `).join('');

@@ -131,7 +131,7 @@ export const dict = {
     confirmDeleteRepair: "متأكد إنك عايز تحذف البلاغ ده نهائيًا؟",
 
     viewingBranchEyebrow: "اختيار الفرع (حساب المسؤول)",
-    editBranchEyebrow: "تعديل بيانات فرع معيّن",
+    editBranchEyebrow: "عرض بيانات فرع معيّن",
     licOverviewEyebrow: "تراخيص كل الفروع",
     editBtn: "تعديل",
     lic_estLicenseShort: "ترخيص المؤسسة",
@@ -312,7 +312,7 @@ export const dict = {
     confirmDeleteRepair: "Are you sure you want to permanently delete this report?",
 
     viewingBranchEyebrow: "Select Branch (Admin Account)",
-    editBranchEyebrow: "Edit a Specific Branch",
+    editBranchEyebrow: "View a Specific Branch's Data",
     licOverviewEyebrow: "All Branches' Licenses",
     editBtn: "Edit",
     lic_estLicenseShort: "Establishment License",
