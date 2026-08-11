@@ -108,6 +108,7 @@ service cloud.firestore {
         (request.auth.token.branchNumber != null &&
          string(request.auth.token.branchNumber) == request.resource.data.branchNumber)
       );
+      allow delete: if request.auth != null && request.auth.token.role == 'admin';
     }
 
     match /licenses/{docId} {
@@ -160,3 +161,21 @@ service cloud.firestore {
 وكلمة المرور موجودة قدام كل فرع في ملف Excel.
 
 **ملاحظة أمان:** الباسوردات دي عشوائية وقوية، احتفظ بملف الـ Excel في مكان آمن ومتشاركوش إلا مع الشخص المسؤول عن كل فرع.
+
+---
+
+## تحديث: إضافة حساب مسؤول أو فرع جديد لاحقًا
+
+مش محتاج تعيد سكريبت الـ46 حساب تاني — فيه سكريبتين صغيرين لكل حالة، في نفس فولدر `branch-accounts-setup`:
+
+### إضافة مسؤول أساسي جديد (يشوف كل حاجة زي المسؤول الحالي)
+1. افتح `add-admin.js`
+2. غيّر `NEW_ADMIN_EMAIL` و`NEW_ADMIN_PASSWORD` بالإيميل والباسورد اللي عايزهم للمسؤول الجديد
+3. شغّل من الـ Terminal (في نفس الفولدر): `node add-admin.js`
+
+### إضافة فرع جديد (فرع 47 مثلًا)
+1. افتح `add-branch.js`
+2. غيّر `BRANCH_NUMBER` (رقم الفرع)، `BRANCH_EMAIL` (خليه بنفس النمط `moaz47@moazportal.com`)، و`BRANCH_PASSWORD`
+3. شغّل: `node add-branch.js`
+
+كل سكريبت من الاتنين بيشتغل لوحده من غير ما يأثر على أي حساب موجود قبل كده.

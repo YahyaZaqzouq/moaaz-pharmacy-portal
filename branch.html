@@ -74,6 +74,7 @@
               <th data-i18n="col_reportDate">تاريخ البلاغ</th>
               <th data-i18n="col_reportTime">وقت البلاغ</th>
               <th data-i18n="col_status">الحالة</th>
+              <th id="deleteColHead" style="display:none" data-i18n="col_delete">حذف</th>
             </tr>
           </thead>
           <tbody id="repairsBody"></tbody>
@@ -183,7 +184,7 @@
 
 <script type="module">
 import {
-  db, auth, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, query, orderBy, where, serverTimestamp,
+  db, auth, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, where, serverTimestamp,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
 import { initLangToggle, getLang, dict } from "./i18n.js";
@@ -324,6 +325,15 @@ async function toggleStatus(id, currentStatus){
 }
 window.__toggleRepairStatus = toggleStatus;
 
+async function deleteRepair(id){
+  const t = dict[getLang()];
+  if(!confirm(t.confirmDeleteRepair)) return;
+  await deleteDoc(doc(db, 'repairs', id));
+  await loadRepairs();
+  renderRepairs();
+}
+window.__deleteRepair = deleteRepair;
+
 function renderRepairs(){
   const lang = getLang();
   const t = dict[lang];
@@ -346,6 +356,9 @@ function renderRepairs(){
   body.innerHTML = data.map(r => {
     const statusLabel = statusKey[lang][r.status || 'open'];
     const badgeColor = r.status === 'done' ? 'var(--teal)' : 'var(--amber)';
+    const deleteCell = isMainAdmin
+      ? `<td><button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px;border-color:var(--danger);color:var(--danger)" onclick="window.__deleteRepair('${r.id}')">${t.deleteBtn}</button></td>`
+      : '';
     return `<tr>
       <td>${r.branchNumber || ''}</td>
       <td>${r.description || ''}</td>
@@ -357,8 +370,10 @@ function renderRepairs(){
           ${statusLabel}
         </button>
       </td>
+      ${deleteCell}
     </tr>`;
   }).join('');
+  document.getElementById('deleteColHead').style.display = isMainAdmin ? '' : 'none';
 }
 
 // ==============================================================

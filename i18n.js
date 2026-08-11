@@ -118,6 +118,9 @@ export const dict = {
     col_reportDate: "تاريخ البلاغ",
     col_reportTime: "وقت البلاغ",
     col_status: "الحالة",
+    col_delete: "حذف",
+    deleteBtn: "حذف",
+    confirmDeleteRepair: "متأكد إنك عايز تحذف البلاغ ده نهائيًا؟",
 
     viewingBranchEyebrow: "اختيار الفرع (حساب المسؤول)",
     loadBtn: "تحميل بيانات الفرع",
@@ -279,6 +282,9 @@ export const dict = {
     col_reportDate: "Report Date",
     col_reportTime: "Report Time",
     col_status: "Status",
+    col_delete: "Delete",
+    deleteBtn: "Delete",
+    confirmDeleteRepair: "Are you sure you want to permanently delete this report?",
 
     viewingBranchEyebrow: "Select Branch (Admin Account)",
     loadBtn: "Load Branch Data",
