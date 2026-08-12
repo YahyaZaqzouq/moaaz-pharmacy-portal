@@ -41,6 +41,7 @@
       <div class="tab" data-tab="licenses" data-i18n="tab_licenses">التراخيص</div>
     </div>
 
+    <!-- قسم تحويل التاريخ الهجري -->
     <!-- قسم الإصلاحات -->
     <div id="repairsSection">
       <div class="card">
@@ -289,6 +290,10 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
+document.getElementById('repairsSection').addEventListener('input', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()) e.target.classList.remove('field-error');
+});
+
 document.getElementById('addRepairBtn').addEventListener('click', async () => {
   const t = dict[getLang()];
   const branchNumber = document.getElementById('repBranch').value.trim();
@@ -298,9 +303,15 @@ document.getElementById('addRepairBtn').addEventListener('click', async () => {
   const reportTime = now.toTimeString().slice(0,5);
 
   const msgEl = document.getElementById('repairMsg');
-  if(!branchNumber || !description){
+  document.querySelectorAll('#repairsSection .field-error').forEach(el => el.classList.remove('field-error'));
+  const missing = [];
+  if(!branchNumber) missing.push(document.getElementById('repBranch'));
+  if(!description) missing.push(document.getElementById('repDesc'));
+  if(missing.length > 0){
     msgEl.textContent = t.errRequired_repair;
     msgEl.className = 'msg show err';
+    missing.forEach(el => el.classList.add('field-error'));
+    missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
@@ -501,6 +512,7 @@ function addPharmLicenseRow(data){
   row.querySelector('.pl-expiry').addEventListener('change', (e) => {
     row.querySelector('.pl-badge').innerHTML = expiryBadgeHtml(e.target.value);
   });
+  addHijriHelper(row.querySelector('.pl-expiry'));
   if(data?.expiryDate) row.querySelector('.pl-badge').innerHTML = expiryBadgeHtml(data.expiryDate);
   document.getElementById('pharmLicensesList').appendChild(row);
 }
@@ -814,6 +826,132 @@ document.getElementById('licExportBtn').addEventListener('click', () => {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pharmRows), t.lic_pharmacistLicenses);
   XLSX.writeFile(wb, 'التراخيص.xlsx');
 });
+
+// ==============================================================
+// تحويل التاريخ الهجري إلى ميلادي (مبني على تقويم أم القرى الرسمي)
+// ==============================================================
+
+const HIJRI_MONTHS_AR = ['محرم','صفر','ربيع الأول','ربيع الآخر','جمادى الأولى','جمادى الآخرة','رجب','شعبان','رمضان','شوال','ذو القعدة','ذو الحجة'];
+const HIJRI_MONTHS_EN = ['Muharram','Safar',"Rabi' al-awwal","Rabi' al-thani",'Jumada al-awwal','Jumada al-thani',"Rajab",'Shaban','Ramadan','Shawwal',"Dhu al-Qi'dah",'Dhu al-Hijjah'];
+
+function hijriMonthOptionsHtml(){
+  const names = getLang() === 'ar' ? HIJRI_MONTHS_AR : HIJRI_MONTHS_EN;
+  return names.map((name, i) => `<option value="${i+1}">${i+1} — ${name}</option>`).join('');
+}
+
+// تقدير أولي سريع (تقويم حسابي) نستخدمه كنقطة انطلاق فقط قبل التأكيد من أم القرى
+function hijriToJDN(y, m, d){
+  return Math.floor((11*y + 3)/30) + 354*y + 30*m - Math.floor((m-1)/2) + d + 1948440 - 385;
+}
+function jdnToApproxDate(jdn){
+  let l = jdn + 68569;
+  const n = Math.floor((4*l)/146097);
+  l = l - Math.floor((146097*n + 3)/4);
+  const i = Math.floor((4000*(l+1))/1461001);
+  l = l - Math.floor((1461*i)/4) + 31;
+  const j = Math.floor((80*l)/2447);
+  const day = l - Math.floor((2447*j)/80);
+  l = Math.floor(j/11);
+  const month = j + 2 - 12*l;
+  const year = 100*(n-49) + i + l;
+  return new Date(year, month - 1, day);
+}
+
+// التحويل الدقيق: بيستخدم تقويم أم القرى الرسمي المدمج في المتصفح (Intl)
+function gregorianToHijriUmAlQura(date){
+  const fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { year:'numeric', month:'numeric', day:'numeric' });
+  const parts = fmt.formatToParts(date);
+  const get = t => parseInt(parts.find(p => p.type === t).value, 10);
+  return { year: get('year'), month: get('month'), day: get('day') };
+}
+
+function hijriUmAlQuraToGregorian(hy, hm, hd){
+  const approx = jdnToApproxDate(hijriToJDN(hy, hm, hd));
+  for(let offset = -4; offset <= 4; offset++){
+    const candidate = new Date(approx);
+    candidate.setDate(candidate.getDate() + offset);
+    const h = gregorianToHijriUmAlQura(candidate);
+    if(h.year === hy && h.month === hm && h.day === hd) return candidate;
+  }
+  return null;
+}
+
+function toISODate(date){
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// إضافة زرار "تحويل من هجري" بعد أي حقل تاريخ، بيملى الحقل مباشرة بالمكافئ الميلادي
+function addHijriHelper(targetInput){
+  if(!targetInput || targetInput.dataset.hijriHelperAdded) return;
+  targetInput.dataset.hijriHelperAdded = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'hijri-helper-wrap';
+  wrap.innerHTML = `
+    <button type="button" class="btn btn-ghost hijri-toggle-btn" style="margin-top:8px;padding:8px 16px;font-size:13px">
+      🗓 <span class="hijri-toggle-label">${dict[getLang()].hijriHelperBtn}</span>
+    </button>
+    <div class="hijri-inline card" style="display:none;margin-top:10px;padding:16px;background:#F7FBFA">
+      <div class="field-row">
+        <div>
+          <label class="hijri-day-label">${dict[getLang()].label_hijriDay}</label>
+          <input type="text" class="hijri-day" inputmode="numeric" placeholder="1-30">
+        </div>
+        <div>
+          <label class="hijri-month-label">${dict[getLang()].label_hijriMonth}</label>
+          <select class="hijri-month">${hijriMonthOptionsHtml()}</select>
+        </div>
+      </div>
+      <label class="hijri-year-label">${dict[getLang()].label_hijriYear}</label>
+      <input type="text" class="hijri-year" inputmode="numeric" placeholder="مثال: 1446">
+      <div class="actions">
+        <button type="button" class="btn btn-primary btn-block hijri-apply-btn">${dict[getLang()].applyBtn}</button>
+      </div>
+      <div class="msg hijri-mini-msg"></div>
+    </div>
+  `;
+  targetInput.insertAdjacentElement('afterend', wrap);
+
+  const toggleBtn = wrap.querySelector('.hijri-toggle-btn');
+  const inlineBox = wrap.querySelector('.hijri-inline');
+  toggleBtn.addEventListener('click', () => {
+    inlineBox.style.display = inlineBox.style.display === 'none' ? 'block' : 'none';
+  });
+
+  wrap.querySelector('.hijri-apply-btn').addEventListener('click', () => {
+    const t = dict[getLang()];
+    const day = parseInt(wrap.querySelector('.hijri-day').value, 10);
+    const month = parseInt(wrap.querySelector('.hijri-month').value, 10);
+    const year = parseInt(wrap.querySelector('.hijri-year').value, 10);
+    const msgEl = wrap.querySelector('.hijri-mini-msg');
+
+    if(!day || day < 1 || day > 30 || !month || !year || year < 1 || year > 1600){
+      msgEl.textContent = t.errRequired_hijri;
+      msgEl.className = 'msg show err hijri-mini-msg';
+      return;
+    }
+
+    const g = hijriUmAlQuraToGregorian(year, month, day);
+    if(!g){
+      msgEl.textContent = t.errHijriConvertFailed;
+      msgEl.className = 'msg show err hijri-mini-msg';
+      return;
+    }
+
+    targetInput.value = toISODate(g);
+    targetInput.classList.remove('field-error');
+    targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+    msgEl.textContent = t.hijriAppliedMsg;
+    msgEl.className = 'msg show ok hijri-mini-msg';
+    setTimeout(() => { inlineBox.style.display = 'none'; }, 900);
+  });
+}
+
+['estExpiryDate','civilDefenseExpiryDate','municipalityExpiryDate','branchCertExpiryDate','extinguisherExpiryDate']
+  .forEach(id => addHijriHelper(document.getElementById(id)));
 </script>
 </body>
 </html>

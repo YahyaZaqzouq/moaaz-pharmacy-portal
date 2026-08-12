@@ -301,6 +301,13 @@ document.getElementById('editCancelBtn').addEventListener('click', () => {
   editingId = null;
 });
 
+document.getElementById('editFormFields').addEventListener('input', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()) e.target.classList.remove('field-error');
+});
+document.getElementById('editFormFields').addEventListener('change', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()) e.target.classList.remove('field-error');
+});
+
 document.getElementById('editSaveBtn').addEventListener('click', async () => {
   const t = dict[getLang()];
   const msgEl = document.getElementById('editMsg');
@@ -309,6 +316,22 @@ document.getElementById('editSaveBtn').addEventListener('click', async () => {
   fields.forEach(([key]) => {
     data[key] = document.getElementById('edit_' + key).value.trim();
   });
+
+  document.querySelectorAll('#editFormFields .field-error').forEach(el => el.classList.remove('field-error'));
+
+  const missing = [];
+  fields.forEach(([key, type]) => {
+    if(key === 'sponsorOther' && data.sponsor !== 'اخر') return;
+    if(!data[key]) missing.push(document.getElementById('edit_' + key));
+  });
+
+  if(missing.length > 0){
+    msgEl.textContent = t.errRequired_allFields;
+    msgEl.className = 'msg show err';
+    missing.forEach(el => el.classList.add('field-error'));
+    missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
 
   const btn = document.getElementById('editSaveBtn');
   btn.disabled = true; btn.textContent = t.saving;

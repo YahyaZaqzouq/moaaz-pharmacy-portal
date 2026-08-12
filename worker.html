@@ -98,8 +98,19 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     updatedAt: serverTimestamp()
   };
 
-  if(!id || !data.fullName || !data.branchNumber || !data.mobile || !sponsor){
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+
+  const requiredIds = ['idNumber','fullName','idExpiry','branchNumber','mobile','sponsor'];
+  const missing = requiredIds.filter(rid => !document.getElementById(rid).value.trim())
+    .map(rid => document.getElementById(rid));
+  if(sponsor === 'اخر' && !document.getElementById('sponsorOther').value.trim()){
+    missing.push(document.getElementById('sponsorOther'));
+  }
+
+  if(missing.length > 0){
     showMsg(t.errRequired_worker, false);
+    missing.forEach(el => el.classList.add('field-error'));
+    missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
@@ -114,6 +125,13 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   } finally {
     saveBtn.disabled = false; saveBtn.textContent = t.saveBtn;
   }
+});
+
+document.querySelector('.card').addEventListener('input', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()) e.target.classList.remove('field-error');
+});
+document.querySelector('.card').addEventListener('change', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()) e.target.classList.remove('field-error');
 });
 </script>
 </body>
