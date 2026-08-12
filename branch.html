@@ -512,6 +512,7 @@ function addPharmLicenseRow(data){
   row.querySelector('.pl-expiry').addEventListener('change', (e) => {
     row.querySelector('.pl-badge').innerHTML = expiryBadgeHtml(e.target.value);
   });
+  addHijriHelper(row.querySelector('.pl-issue'));
   addHijriHelper(row.querySelector('.pl-expiry'));
   if(data?.expiryDate) row.querySelector('.pl-badge').innerHTML = expiryBadgeHtml(data.expiryDate);
   document.getElementById('pharmLicensesList').appendChild(row);
@@ -950,7 +951,7 @@ function addHijriHelper(targetInput){
   });
 }
 
-['estExpiryDate','civilDefenseExpiryDate','municipalityExpiryDate','branchCertExpiryDate','extinguisherExpiryDate']
+['estIssueDate','estExpiryDate','civilDefenseIssueDate','civilDefenseExpiryDate','municipalityExpiryDate','branchCertExpiryDate','extinguisherExpiryDate']
   .forEach(id => addHijriHelper(document.getElementById(id)));
 </script>
 </body>
