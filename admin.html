@@ -44,28 +44,69 @@
       <div class="stat"><div class="num" id="statLicenseAlerts" style="color:var(--danger)">—</div><div class="lbl" data-i18n="statLicenseAlerts">فروع محتاجة مراجعة تراخيص</div></div>
     </div>
 
+    <div class="card" id="alertsFeedCard">
+      <div class="eyebrow" data-i18n="alertsFeedEyebrow">تنبيهات اليوم</div>
+
+      <div style="margin-bottom:18px">
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;margin-bottom:8px" data-i18n="alertsFeedRepairsTitle">بلاغات مفتوحة</div>
+        <div id="alertsRepairsList"></div>
+        <div class="hint" id="alertsRepairsEmpty" data-i18n="alertsFeedNoRepairs" style="display:none">مفيش بلاغات مفتوحة دلوقتي 🎉</div>
+      </div>
+
+      <div>
+        <div style="font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;margin-bottom:8px" data-i18n="alertsFeedLicensesTitle">فروع محتاجة مراجعة تراخيص</div>
+        <div id="alertsLicensesList"></div>
+        <div class="hint" id="alertsLicensesEmpty" data-i18n="alertsFeedNoLicenses" style="display:none">كل التراخيص سارية حاليًا 🎉</div>
+      </div>
+    </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="pharmacists" data-i18n="tab_pharmacists">الصيادلة</div>
       <div class="tab" data-tab="workers" data-i18n="tab_workers">العمال</div>
+      <div class="tab" data-tab="ranking" data-i18n="tab_ranking">ترتيب الفروع</div>
     </div>
 
-    <div class="toolbar">
-      <input type="text" id="searchBox" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
-      <button class="btn btn-ghost" id="exportBtn" data-i18n="exportBtn">تصدير Excel</button>
-      <button class="btn btn-ghost" id="refreshBtn" data-i18n="refreshBtn">تحديث</button>
-      <button class="btn btn-ghost" id="logoutBtn" data-i18n="logoutBtn">خروج</button>
+    <div id="dataView">
+      <div class="toolbar">
+        <input type="text" id="searchBox" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+        <button class="btn btn-ghost" id="exportBtn" data-i18n="exportBtn">تصدير Excel</button>
+        <button class="btn btn-ghost" id="refreshBtn" data-i18n="refreshBtn">تحديث</button>
+        <button class="btn btn-ghost" id="logoutBtn" data-i18n="logoutBtn">خروج</button>
+      </div>
+
+      <div class="table-scroll">
+        <table id="dataTable">
+          <thead><tr id="tableHead"></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="icon">📭</div>
+        <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+      </div>
     </div>
 
-    <div class="table-scroll">
-      <table id="dataTable">
-        <thead><tr id="tableHead"></tr></thead>
-        <tbody id="tableBody"></tbody>
-      </table>
-    </div>
-
-    <div class="empty-state" id="emptyState" style="display:none">
-      <div class="icon">📭</div>
-      <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+    <div id="rankingView" style="display:none">
+      <div class="hint" data-i18n="rankingHint" style="margin-bottom:14px">النقطة محسوبة من: اكتمال وسريان بنود التراخيص، عدد البلاغات المفتوحة، واكتمال بيانات الصيادلة/العمال. الفروع اللي مالهاش أي بيانات مسجلة لسه مش هتظهر هنا.</div>
+      <div class="table-scroll">
+        <table id="rankingTable">
+          <thead>
+            <tr>
+              <th data-i18n="col_branchNumber">رقم الفرع</th>
+              <th data-i18n="rankingScoreCol">النقطة</th>
+              <th data-i18n="rankingLicenseCol">اكتمال التراخيص</th>
+              <th data-i18n="rankingRepairsCol">بلاغات مفتوحة</th>
+              <th data-i18n="rankingDataCol">بيانات الأفراد</th>
+            </tr>
+          </thead>
+          <tbody id="rankingBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="rankingEmpty" style="display:none">
+        <div class="icon">📭</div>
+        <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+      </div>
     </div>
   </div>
 
@@ -86,7 +127,7 @@
 
 <script type="module">
 import {
-  db, auth, collection, doc, setDoc, deleteDoc, getDocs,
+  db, auth, collection, doc, setDoc, deleteDoc, updateDoc, getDocs,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
 import { initLangToggle, getLang, dict } from "./i18n.js";
@@ -95,6 +136,8 @@ const currentLang = initLangToggle();
 // إعادة تطبيق الترجمة بعد أي تبديل لغة أثناء الاستخدام
 document.getElementById('langToggle').addEventListener('click', () => {
   renderTable();
+  renderAlertsFeed();
+  if(document.getElementById('rankingView').style.display !== 'none') renderRanking();
 });
 
 const loginCard = document.getElementById('loginCard');
@@ -104,6 +147,8 @@ const loginMsg = document.getElementById('loginMsg');
 let currentTab = 'pharmacists';
 let pharmacistsData = [];
 let workersData = [];
+let repairsFeedData = [];
+let licensesFeedData = [];
 
 function columns(){
   const t = dict[getLang()];
@@ -160,19 +205,176 @@ async function loadData(){
   ]);
   pharmacistsData = pSnap.docs.map(d => d.data());
   workersData = wSnap.docs.map(d => d.data());
-  const repairsData = rSnap.docs.map(d => d.data());
-  const licensesData = lSnap.docs.map(d => d.data());
+  repairsFeedData = rSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  licensesFeedData = lSnap.docs.map(d => d.data());
 
   document.getElementById('statPharm').textContent = pharmacistsData.length;
   document.getElementById('statWork').textContent = workersData.length;
   const branches = new Set([...pharmacistsData, ...workersData].map(r => r.branchNumber).filter(Boolean));
   document.getElementById('statBranches').textContent = branches.size;
 
-  const openRepairs = repairsData.filter(r => (r.status || 'open') === 'open').length;
+  const openRepairs = repairsFeedData.filter(r => (r.status || 'open') === 'open').length;
   document.getElementById('statOpenRepairs').textContent = openRepairs;
 
-  const alertingBranches = licensesData.filter(licenseHasAlert).length;
+  const alertingBranches = licensesFeedData.filter(licenseHasAlert).length;
   document.getElementById('statLicenseAlerts').textContent = alertingBranches;
+
+  renderAlertsFeed();
+}
+
+const LICENSE_ALERT_FIELDS = [
+  ['estExpiryDate', 'lic_estLicenseShort'],
+  ['civilDefenseExpiryDate', 'lic_civilDefenseShort'],
+  ['municipalityExpiryDate', 'lic_municipalityShort'],
+  ['extinguisherExpiryDate', 'lic_extinguisherShort']
+];
+
+function renderAlertsFeed(){
+  const t = dict[getLang()];
+
+  const openRepairs = repairsFeedData
+    .filter(r => (r.status || 'open') === 'open')
+    .sort((a,b) => `${b.reportDate||''} ${b.reportTime||''}`.localeCompare(`${a.reportDate||''} ${a.reportTime||''}`));
+
+  const repairsList = document.getElementById('alertsRepairsList');
+  const repairsEmpty = document.getElementById('alertsRepairsEmpty');
+  if(openRepairs.length === 0){
+    repairsList.innerHTML = '';
+    repairsEmpty.style.display = 'block';
+  } else {
+    repairsEmpty.style.display = 'none';
+    repairsList.innerHTML = openRepairs.map(r => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">
+        <div>
+          <div style="font-weight:700;font-size:13.5px">${t.col_branchNumber} ${r.branchNumber || ''} — ${r.description || ''}</div>
+          <div style="font-size:12px;color:var(--ink-soft)">${r.reportDate || ''} ${r.reportTime || ''}</div>
+        </div>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:12.5px;flex-shrink:0" onclick="window.__markRepairDone('${r.id}')">${t.markDoneBtn}</button>
+      </div>
+    `).join('');
+  }
+
+  const alertingLicenses = licensesFeedData.filter(licenseHasAlert);
+  const licensesList = document.getElementById('alertsLicensesList');
+  const licensesEmpty = document.getElementById('alertsLicensesEmpty');
+  if(alertingLicenses.length === 0){
+    licensesList.innerHTML = '';
+    licensesEmpty.style.display = 'block';
+  } else {
+    licensesEmpty.style.display = 'none';
+    licensesList.innerHTML = alertingLicenses.map(lic => {
+      const items = LICENSE_ALERT_FIELDS.filter(([key]) => isDateAlerting(lic[key])).map(([,labelKey]) => t[labelKey]);
+      if(lic.branchCertExists === 'yes' && isDateAlerting(lic.branchCertExpiryDate)) items.push(t.lic_branchCert);
+      (lic.pharmacistLicenses || []).forEach(p => { if(isDateAlerting(p.expiryDate)) items.push(`${t.lic_pharmacistLicenses} (${p.name || ''})`); });
+      return `
+        <div style="padding:10px 0;border-bottom:1px solid var(--line)">
+          <div style="font-weight:700;font-size:13.5px;color:var(--danger)">${t.col_branchNumber} ${lic.branchNumber || ''}</div>
+          <div style="font-size:12.5px;color:var(--ink-soft)">${items.join('، ')}</div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+window.__markRepairDone = async function(id){
+  await updateDoc(doc(db, 'repairs', id), { status: 'done' });
+  await loadData();
+};
+
+// ==============================================================
+// ترتيب أداء الفروع (Branch Score)
+// ==============================================================
+
+const RANKING_BOOL_KEYS = [
+  'insectTrap','commRegOnSign','phoneOnSign','noSmokingSticker','cameraMonitoredSticker',
+  'pharmacyStamp','prescriptionLog','healthVisitsLog','humidityThermometer','pharmacyThermometer',
+  'fridgeThermometer','pharmacovigilanceSticker','emergencyNumbersSticker','similarDrugSticker',
+  'antibioticRxOnlySticker','instructionsPrinter','workLog','disabledEntrance','tempRecordSheet',
+  'sideEffectsReportSticker','wasteContainer','zakatLicense','branchCertExists'
+];
+const RANKING_DATED_KEYS = [
+  ['estLicenseNumber','estExpiryDate'],
+  ['civilDefenseNumber','civilDefenseExpiryDate'],
+  ['municipalityNumber','municipalityExpiryDate'],
+  ['extinguisherCount','extinguisherExpiryDate']
+];
+
+function isDateExpired(dateStr){
+  if(!dateStr) return true;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return new Date(dateStr) < today;
+}
+
+function computeBranchScores(){
+  const branchNumbers = new Set([
+    ...pharmacistsData.map(r => r.branchNumber),
+    ...workersData.map(r => r.branchNumber),
+    ...licensesFeedData.map(r => r.branchNumber),
+    ...repairsFeedData.map(r => r.branchNumber)
+  ].filter(Boolean));
+
+  return [...branchNumbers].map(branchNumber => {
+    const lic = licensesFeedData.find(l => l.branchNumber === branchNumber) || null;
+
+    let totalItems = RANKING_BOOL_KEYS.length + RANKING_DATED_KEYS.length + 1;
+    let goodItems = 0;
+    if(lic){
+      RANKING_BOOL_KEYS.forEach(key => { if(lic[key] === 'yes') goodItems++; });
+      RANKING_DATED_KEYS.forEach(([numKey, dateKey]) => {
+        if(lic[numKey] && lic[dateKey] && !isDateExpired(lic[dateKey])) goodItems++;
+      });
+      const pharmLics = lic.pharmacistLicenses || [];
+      if(pharmLics.length > 0 && pharmLics.every(p => p.name && p.expiryDate && !isDateExpired(p.expiryDate))) goodItems++;
+    }
+    const licensePercent = totalItems > 0 ? goodItems / totalItems : 0;
+
+    const openRepairsCount = repairsFeedData.filter(r => r.branchNumber === branchNumber && (r.status||'open') === 'open').length;
+    const repairsScore = Math.max(0, 1 - openRepairsCount * 0.2);
+
+    const hasPharm = pharmacistsData.some(p => p.branchNumber === branchNumber);
+    const hasWork = workersData.some(w => w.branchNumber === branchNumber);
+    const dataScore = (hasPharm && hasWork) ? 1 : (hasPharm || hasWork) ? 0.5 : 0;
+
+    const score = Math.round(licensePercent * 70 + repairsScore * 20 + dataScore * 10);
+
+    return { branchNumber, score, licensePercent, openRepairsCount, hasPharm, hasWork };
+  }).sort((a,b) => b.score - a.score);
+}
+
+function scoreColor(score){
+  if(score >= 80) return 'var(--amber-dark)';
+  if(score >= 50) return 'var(--teal)';
+  return 'var(--danger)';
+}
+
+function renderRanking(){
+  const t = dict[getLang()];
+  const scores = computeBranchScores();
+  const body = document.getElementById('rankingBody');
+  const empty = document.getElementById('rankingEmpty');
+  const table = document.getElementById('rankingTable');
+
+  if(scores.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  body.innerHTML = scores.map(s => {
+    const dataLabel = (s.hasPharm && s.hasWork) ? t.rankingDataFull : (s.hasPharm || s.hasWork) ? t.rankingDataPartial : t.rankingDataNone;
+    return `
+      <tr>
+        <td data-label="${t.col_branchNumber}">${s.branchNumber}</td>
+        <td data-label="${t.rankingScoreCol}"><strong style="color:${scoreColor(s.score)};font-family:'Cairo',sans-serif;font-size:16px">${s.score}</strong> / 100</td>
+        <td data-label="${t.rankingLicenseCol}">${Math.round(s.licensePercent*100)}%</td>
+        <td data-label="${t.rankingRepairsCol}">${s.openRepairsCount}</td>
+        <td data-label="${t.rankingDataCol}">${dataLabel}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function isDateAlerting(dateStr){
@@ -199,9 +401,19 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    currentTab = tab.dataset.tab;
-    document.getElementById('searchBox').value = '';
-    renderTable();
+    const target = tab.dataset.tab;
+
+    if(target === 'ranking'){
+      document.getElementById('dataView').style.display = 'none';
+      document.getElementById('rankingView').style.display = 'block';
+      renderRanking();
+    } else {
+      document.getElementById('dataView').style.display = 'block';
+      document.getElementById('rankingView').style.display = 'none';
+      currentTab = target;
+      document.getElementById('searchBox').value = '';
+      renderTable();
+    }
   });
 });
 
