@@ -60,6 +60,12 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="eyebrow" data-i18n="icsEyebrow">تقويم تواريخ الانتهاء</div>
+      <div class="hint" style="margin-bottom:14px" data-i18n="icsHint">صدّر كل تواريخ انتهاء التراخيص في كل الفروع كملف تقويم، واستورده في تقويم موبايلك (Google Calendar أو Outlook) عشان تاخد تذكير تلقائي قبل أسبوع من أي ترخيص هيخلص.</div>
+      <button class="btn btn-primary" id="exportIcsBtn" data-i18n="icsExportBtn">تصدير ملف تقويم (.ics)</button>
+    </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="pharmacists" data-i18n="tab_pharmacists">الصيادلة</div>
       <div class="tab" data-tab="workers" data-i18n="tab_workers">العمال</div>
@@ -346,6 +352,75 @@ function scoreColor(score){
   if(score >= 50) return 'var(--teal)';
   return 'var(--danger)';
 }
+
+// ==============================================================
+// تصدير ملف تقويم (.ics) لكل تواريخ انتهاء التراخيص
+// ==============================================================
+
+function icsEscape(text){
+  return String(text).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+
+function icsFold(line){
+  if(line.length <= 70) return line;
+  let result = '';
+  let rest = line;
+  while(rest.length > 70){
+    result += rest.slice(0,70) + '\r\n ';
+    rest = rest.slice(70);
+  }
+  return result + rest;
+}
+
+function generateICS(){
+  const t = dict[getLang()];
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Moaz Pharmacy Portal//AR','CALSCALE:GREGORIAN'];
+  const dtstamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+
+  function addEvent(uid, dateStr, summary){
+    if(!dateStr) return;
+    const dt = dateStr.replace(/-/g,'');
+    lines.push('BEGIN:VEVENT');
+    lines.push(icsFold('UID:' + uid + '@moazpharmacy.portal'));
+    lines.push('DTSTAMP:' + dtstamp);
+    lines.push('DTSTART;VALUE=DATE:' + dt);
+    lines.push(icsFold('SUMMARY:' + icsEscape(summary)));
+    lines.push('BEGIN:VALARM');
+    lines.push('TRIGGER:-P7D');
+    lines.push('ACTION:DISPLAY');
+    lines.push(icsFold('DESCRIPTION:' + icsEscape(summary)));
+    lines.push('END:VALARM');
+    lines.push('END:VEVENT');
+  }
+
+  licensesFeedData.forEach(lic => {
+    const b = lic.branchNumber || '';
+    addEvent(`est-${b}`, lic.estExpiryDate, `${t.lic_estLicenseShort} — ${t.col_branchNumber} ${b}`);
+    addEvent(`cd-${b}`, lic.civilDefenseExpiryDate, `${t.lic_civilDefenseShort} — ${t.col_branchNumber} ${b}`);
+    addEvent(`mun-${b}`, lic.municipalityExpiryDate, `${t.lic_municipalityShort} — ${t.col_branchNumber} ${b}`);
+    addEvent(`ext-${b}`, lic.extinguisherExpiryDate, `${t.lic_extinguisherShort} — ${t.col_branchNumber} ${b}`);
+    if(lic.branchCertExists === 'yes') addEvent(`cert-${b}`, lic.branchCertExpiryDate, `${t.lic_branchCert} — ${t.col_branchNumber} ${b}`);
+    (lic.pharmacistLicenses || []).forEach((p, i) => {
+      addEvent(`pharm-${b}-${i}`, p.expiryDate, `${t.lic_pharmacistLicenses} (${p.name || ''}) — ${t.col_branchNumber} ${b}`);
+    });
+  });
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+document.getElementById('exportIcsBtn').addEventListener('click', () => {
+  const ics = generateICS();
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'moaz-pharmacy-license-expiry.ics';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
 
 function renderRanking(){
   const t = dict[getLang()];
