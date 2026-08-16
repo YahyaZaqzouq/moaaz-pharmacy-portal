@@ -63,6 +63,14 @@
 
       <div class="toolbar">
         <input type="text" id="repairSearch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+        <select id="repairStatusFilter">
+          <option value="" data-i18n="filterAllStatus">كل الحالات</option>
+          <option value="open" data-i18n="statusOpen">تحت الإجراء</option>
+          <option value="done" data-i18n="statusDone">تم الإصلاح</option>
+        </select>
+        <select id="repairBranchFilter" style="display:none">
+          <option value="" data-i18n="filterAllBranches">كل الفروع</option>
+        </select>
         <button class="btn btn-ghost" id="repairExportBtn" data-i18n="exportBtn">تصدير Excel</button>
         <button class="btn btn-ghost" id="repairRefreshBtn" data-i18n="refreshBtn">تحديث</button>
         <button class="btn btn-ghost" id="logoutBtn" data-i18n="logoutBtn">خروج</button>
@@ -203,6 +211,12 @@
         </div>
 
         <div class="card">
+          <div class="eyebrow" data-i18n="auditLogEyebrow">سجل التعديلات</div>
+          <div id="auditLogList"></div>
+          <div class="hint" id="auditLogEmpty" data-i18n="auditLogEmpty">لسه مفيش تعديلات مسجلة على بيانات الفرع ده</div>
+        </div>
+
+        <div class="card">
           <div class="actions">
             <button class="btn btn-primary btn-block" id="saveLicensesBtn" data-i18n="saveBtn">حفظ البيانات</button>
           </div>
@@ -216,7 +230,7 @@
 
 <script type="module">
 import {
-  db, auth, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, where, serverTimestamp,
+  db, auth, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, where, limit, serverTimestamp,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
 import { initLangToggle, getLang, dict } from "./i18n.js";
@@ -343,10 +357,21 @@ document.getElementById('repairRefreshBtn').addEventListener('click', async () =
   renderRepairs();
 });
 
+function filteredRepairs(){
+  const q = document.getElementById('repairSearch').value.trim();
+  const statusFilter = document.getElementById('repairStatusFilter').value;
+  const branchFilter = document.getElementById('repairBranchFilter').value;
+  return repairsData.filter(r =>
+    (!q || (r.description||'').includes(q) || String(r.branchNumber||'').includes(q)) &&
+    (!statusFilter || (r.status || 'open') === statusFilter) &&
+    (!branchFilter || String(r.branchNumber||'') === branchFilter)
+  );
+}
+
 document.getElementById('repairExportBtn').addEventListener('click', () => {
   const t = dict[getLang()];
   const lang = getLang();
-  const rows = repairsData.map(r => ({
+  const rows = filteredRepairs().map(r => ({
     [t.col_branchNumber]: r.branchNumber || '',
     [t.col_repairDesc]: r.description || '',
     [t.col_reportDate]: r.reportDate || '',
@@ -360,6 +385,8 @@ document.getElementById('repairExportBtn').addEventListener('click', () => {
 });
 
 document.getElementById('repairSearch').addEventListener('input', renderRepairs);
+document.getElementById('repairStatusFilter').addEventListener('change', renderRepairs);
+document.getElementById('repairBranchFilter').addEventListener('change', renderRepairs);
 
 async function loadRepairs(){
   let q;
@@ -372,6 +399,20 @@ async function loadRepairs(){
   repairsData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   if(!isMainAdmin && myBranchNumber !== null){
     repairsData.sort((a,b) => `${b.reportDate||''} ${b.reportTime||''}`.localeCompare(`${a.reportDate||''} ${a.reportTime||''}`));
+  }
+
+  const branchFilter = document.getElementById('repairBranchFilter');
+  if(isMainAdmin){
+    branchFilter.style.display = '';
+    const t = dict[getLang()];
+    const branches = [...new Set(repairsData.map(r => r.branchNumber).filter(Boolean))]
+      .sort((a,b) => Number(a) - Number(b));
+    const prevValue = branchFilter.value;
+    branchFilter.innerHTML = `<option value="">${t.filterAllBranches}</option>` +
+      branches.map(b => `<option value="${b}">${b}</option>`).join('');
+    branchFilter.value = branches.includes(prevValue) ? prevValue : '';
+  } else {
+    branchFilter.style.display = 'none';
   }
 }
 
@@ -395,8 +436,7 @@ window.__deleteRepair = deleteRepair;
 function renderRepairs(){
   const lang = getLang();
   const t = dict[lang];
-  const q = document.getElementById('repairSearch').value.trim();
-  const data = repairsData.filter(r => !q || (r.description||'').includes(q) || String(r.branchNumber||'').includes(q));
+  const data = filteredRepairs();
 
   const body = document.getElementById('repairsBody');
   const empty = document.getElementById('repairsEmpty');
@@ -463,6 +503,7 @@ const BOOL_ITEMS = [
 
 let licTargetBranch = null;
 let pharmLicenseCount = 0;
+let lastLoadedLicenseData = null;
 
 function buildBoolRows(){
   const t = dict[getLang()];
@@ -570,6 +611,7 @@ function initLicensesTab(){
 async function loadLicenseForm(branchNumber){
   const snap = await getDoc(doc(db, 'licenses', branchNumber));
   const d = snap.exists() ? snap.data() : {};
+  lastLoadedLicenseData = snap.exists() ? d : null;
 
   document.getElementById('estLicenseNumber').value = d.estLicenseNumber || '';
   document.getElementById('estIssueDate').value = d.estIssueDate || '';
@@ -611,6 +653,7 @@ async function loadLicenseForm(branchNumber){
   (d.pharmacistLicenses || []).forEach(p => addPharmLicenseRow(p));
 
   document.getElementById('licFormWrap').style.display = 'block';
+  await loadAuditLog(branchNumber);
 }
 
 document.getElementById('licFormWrap').addEventListener('input', (e) => {
@@ -722,8 +765,11 @@ document.getElementById('saveLicensesBtn').addEventListener('click', async () =>
 
   try{
     await setDoc(doc(db, 'licenses', branchNumber), data);
+    await logLicenseAudit(branchNumber, lastLoadedLicenseData, data);
+    lastLoadedLicenseData = data;
     msgEl.textContent = t.successMsg;
     msgEl.className = 'msg show ok';
+    await loadAuditLog(branchNumber);
   } catch(e){
     msgEl.textContent = t.errPrefix + e.message;
     msgEl.className = 'msg show err';
@@ -953,6 +999,98 @@ function addHijriHelper(targetInput){
 
 ['estIssueDate','estExpiryDate','civilDefenseIssueDate','civilDefenseExpiryDate','municipalityExpiryDate','branchCertExpiryDate','extinguisherExpiryDate']
   .forEach(id => addHijriHelper(document.getElementById(id)));
+
+// ==============================================================
+// سجل تعديلات التراخيص (Audit Log)
+// ==============================================================
+
+const AUDIT_FIELD_LABELS = {
+  estLicenseNumber: 'lic_estLicense', estIssueDate: 'label_issueDate', estExpiryDate: 'label_expiryDate',
+  civilDefenseNumber: 'lic_civilDefense', civilDefenseIssueDate: 'label_issueDate', civilDefenseExpiryDate: 'label_expiryDate',
+  municipalityNumber: 'lic_municipality', municipalityExpiryDate: 'label_expiryDate',
+  pestContractNumber: 'lic_pestContract', pestContractDate: 'label_contractDate',
+  wasteContainer: 'lic_wasteContainer', zakatLicense: 'lic_zakat',
+  branchCertExists: 'lic_branchCert', branchCertExpiryDate: 'label_expiryDate',
+  extinguisherCount: 'lic_extinguisherCount', extinguisherExpiryDate: 'label_expiryDate',
+  pharmacistLicenses: 'lic_pharmacistLicenses'
+};
+BOOL_ITEMS.forEach(([key, labelKey]) => { AUDIT_FIELD_LABELS[key] = labelKey; });
+
+function fieldLabel(key){
+  const t = dict[getLang()];
+  const labelKey = AUDIT_FIELD_LABELS[key];
+  return labelKey && t[labelKey] ? t[labelKey] : key;
+}
+
+function computeChangedFields(oldData, newData){
+  const oldD = oldData || {};
+  const keys = new Set([...Object.keys(oldD), ...Object.keys(newData)]);
+  keys.delete('updatedAt');
+  keys.delete('branchNumber');
+  const changed = [];
+  keys.forEach(key => {
+    const a = JSON.stringify(oldD[key] ?? null);
+    const b = JSON.stringify(newData[key] ?? null);
+    if(a !== b) changed.push(key);
+  });
+  return changed;
+}
+
+async function logLicenseAudit(branchNumber, oldData, newData){
+  const isNew = !oldData;
+  const changedKeys = isNew ? ['__created__'] : computeChangedFields(oldData, newData);
+  if(changedKeys.length === 0) return;
+  try{
+    await addDoc(collection(db, 'license_audit'), {
+      branchNumber,
+      changedBy: auth.currentUser?.email || '',
+      changedFieldKeys: changedKeys,
+      timestamp: serverTimestamp()
+    });
+  } catch(e){
+    console.error('Audit log write failed:', e.message);
+  }
+}
+
+async function loadAuditLog(branchNumber){
+  const listEl = document.getElementById('auditLogList');
+  const emptyEl = document.getElementById('auditLogEmpty');
+  try{
+    const q = query(collection(db, 'license_audit'), where('branchNumber', '==', branchNumber));
+    const snap = await getDocs(q);
+    const entries = snap.docs.map(d => d.data())
+      .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0))
+      .slice(0, 15);
+
+    if(entries.length === 0){
+      listEl.innerHTML = '';
+      emptyEl.style.display = 'block';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    const lang = getLang();
+    const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+    listEl.innerHTML = entries.map(entry => {
+      const when = entry.timestamp?.toDate ? entry.timestamp.toDate().toLocaleString(locale) : '';
+      const keys = entry.changedFieldKeys || [];
+      const fieldsText = keys.includes('__created__')
+        ? dict[lang].auditLogCreated
+        : keys.map(fieldLabel).join('، ');
+      return `
+        <div style="padding:12px 0;border-bottom:1px solid var(--line)">
+          <div style="font-weight:700;font-size:13.5px">${entry.changedBy || '—'}</div>
+          <div style="font-size:12px;color:var(--ink-soft);margin:2px 0 6px">${when}</div>
+          <div style="font-size:13px">${fieldsText}</div>
+        </div>
+      `;
+    }).join('');
+  } catch(e){
+    listEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = dict[getLang()].auditLogError;
+  }
+}
 </script>
 </body>
 </html>

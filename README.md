@@ -126,6 +126,20 @@ service cloud.firestore {
       );
     }
 
+    match /license_audit/{docId} {
+      allow read: if request.auth != null && (
+        request.auth.token.role == 'admin' ||
+        (request.auth.token.branchNumber != null &&
+         string(request.auth.token.branchNumber) == resource.data.branchNumber)
+      );
+      allow create: if request.auth != null && (
+        request.auth.token.role == 'admin' ||
+        (request.auth.token.branchNumber != null &&
+         string(request.auth.token.branchNumber) == request.resource.data.branchNumber)
+      );
+      allow update, delete: if false;
+    }
+
   }
 }
 ```
@@ -134,6 +148,7 @@ service cloud.firestore {
 - **الصيادلة/العمال:** أي حد (حتى بدون تسجيل دخول) يقدر يكتب بياناته أو يعدّلها (create/update). **الحذف مقصور على المسؤول الأساسي بس**. القراءة الكاملة مقصورة على حساب المسؤول الأساسي بس (اللي عنده `role: admin`) — حسابات الفروع مش هتقدر تشوفها خالص.
 - **الإصلاحات:** كل حساب فرع يشوف ويعدّل بيانات فرعه هو بس (بناءً على `branchNumber` المربوط بحسابه). حساب المسؤول الأساسي يشوف الكل، وهو الوحيد اللي يقدر يحذف.
 - **التراخيص:** نفس مبدأ الإصلاحات — كل فرع يشوف ويعدّل بياناته هو بس، والمسؤول الأساسي يشوف الكل.
+- **سجل التعديلات (license_audit):** بيتسجل تلقائي مع كل حفظ للتراخيص (مين عدّل، إمتى، وأي حقول اتغيرت بالظبط) — للقراءة والكتابة فقط، مفيش تعديل أو حذف عليه نهائيًا حفاظًا على مصداقية السجل.
 
 ---
 
