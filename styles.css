@@ -59,6 +59,9 @@ a{ color: var(--teal); }
   margin: 0 auto;
   padding: 28px 18px 64px;
 }
+@media (min-width: 900px){
+  .wrap{ max-width: min(1100px, 92vw); }
+}
 
 .topbar{
   display:flex; align-items:center; gap:14px;
@@ -128,6 +131,9 @@ a{ color: var(--teal); }
 .eyebrow::before{ content:''; width:6px; height:6px; border-radius:50%; background: var(--amber); }
 
 .role-grid{ display:grid; gap:14px; }
+@media (min-width: 700px){
+  .role-grid{ grid-template-columns: 1fr 1fr; }
+}
 .role-card{
   display:flex; align-items:center; gap:16px;
   background: var(--card);
