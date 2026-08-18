@@ -308,12 +308,8 @@ function formatTimeAMPM(timeStr, lang){
   if(!timeStr) return '';
   const parts = timeStr.split(':');
   const h = parseInt(parts[0], 10);
-  const m = parts[1] || '00';
-  if(isNaN(h)) return timeStr;
-  const period = h < 12 ? (lang === 'ar' ? 'صباحًا' : 'AM') : (lang === 'ar' ? 'مساءً' : 'PM');
-  let hour12 = h % 12;
-  if(hour12 === 0) hour12 = 12;
-  return `${String(hour12).padStart(2,'0')}:${m} ${period}`;
+  if(isNaN(h)) return '';
+  return h < 12 ? (lang === 'ar' ? 'صباحًا' : 'AM') : (lang === 'ar' ? 'مساءً' : 'PM');
 }
 
 let repairsData = [];
