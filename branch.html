@@ -39,6 +39,7 @@
     <div class="tabs">
       <div class="tab active" data-tab="repairs" data-i18n="tab_repairs">الإصلاحات المطلوبة</div>
       <div class="tab" data-tab="licenses" data-i18n="tab_licenses">التراخيص</div>
+      <div class="tab" data-tab="temp" data-i18n="tab_temp">سجل الحرارة والرطوبة</div>
     </div>
 
     <!-- قسم تحويل التاريخ الهجري -->
@@ -225,6 +226,64 @@
       </div>
     </div>
 
+    <!-- قسم سجل الحرارة والرطوبة -->
+    <div id="tempSection" style="display:none">
+      <div class="card">
+        <div class="eyebrow" data-i18n="tempEyebrow">تسجيل قراءة جديدة</div>
+        <div class="hint" style="margin-bottom:16px" data-i18n="tempRangeHint">النطاقات المرجعية: الثلاجة 2-8°م، حرارة الصيدلية أقل من 25°م، الرطوبة أقل من 60%. راجع اللائحة الرسمية لو مختلفة عندكم.</div>
+
+        <label data-i18n="label_branchNumber">رقم الفرع</label>
+        <input type="text" id="tempBranch" inputmode="numeric" data-i18n-placeholder="ph_branchNumber" placeholder="مثال: 29">
+
+        <div class="field-row">
+          <div>
+            <label data-i18n="label_fridgeTemp">حرارة الثلاجة (°م)</label>
+            <input type="text" id="fridgeTemp" inputmode="decimal" placeholder="مثال: 5">
+          </div>
+          <div>
+            <label data-i18n="label_pharmacyTemp">حرارة الصيدلية (°م)</label>
+            <input type="text" id="pharmacyTemp" inputmode="decimal" placeholder="مثال: 23">
+          </div>
+        </div>
+        <label data-i18n="label_humidity">الرطوبة (%)</label>
+        <input type="text" id="humidity" inputmode="decimal" placeholder="مثال: 45">
+
+        <div class="actions">
+          <button class="btn btn-primary btn-block" id="addTempBtn" data-i18n="addTempBtn">تسجيل القراءة</button>
+        </div>
+        <div class="msg" id="tempMsg"></div>
+      </div>
+
+      <div class="toolbar">
+        <select id="tempBranchFilter" style="display:none">
+          <option value="" data-i18n="filterAllBranches">كل الفروع</option>
+        </select>
+        <button class="btn btn-ghost" id="tempExportBtn" data-i18n="exportBtn">تصدير Excel</button>
+        <button class="btn btn-ghost" id="tempRefreshBtn" data-i18n="refreshBtn">تحديث</button>
+        <button class="btn btn-ghost" id="logoutBtn2" data-i18n="logoutBtn">خروج</button>
+      </div>
+
+      <div class="table-scroll">
+        <table id="tempTable">
+          <thead>
+            <tr>
+              <th data-i18n="col_branchNumber">رقم الفرع</th>
+              <th data-i18n="col_date">التاريخ</th>
+              <th data-i18n="col_time">الوقت</th>
+              <th data-i18n="label_fridgeTemp">حرارة الثلاجة</th>
+              <th data-i18n="label_pharmacyTemp">حرارة الصيدلية</th>
+              <th data-i18n="label_humidity">الرطوبة</th>
+            </tr>
+          </thead>
+          <tbody id="tempBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="tempEmpty" style="display:none">
+        <div class="icon">📭</div>
+        <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -262,6 +321,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+document.getElementById('logoutBtn2').addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
@@ -270,9 +330,12 @@ onAuthStateChanged(auth, async (user) => {
     isMainAdmin = tokenResult.claims.role === 'admin';
 
     const repBranchInput = document.getElementById('repBranch');
+    const tempBranchInput = document.getElementById('tempBranch');
     if(myBranchNumber !== null && !isMainAdmin){
       repBranchInput.value = myBranchNumber;
       repBranchInput.disabled = true;
+      tempBranchInput.value = myBranchNumber;
+      tempBranchInput.disabled = true;
     }
 
     const t = dict[getLang()];
@@ -297,10 +360,12 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     tab.classList.add('active');
-    const isRepairs = tab.dataset.tab === 'repairs';
-    document.getElementById('repairsSection').style.display = isRepairs ? 'block' : 'none';
-    document.getElementById('licensesSection').style.display = isRepairs ? 'none' : 'block';
-    if(!isRepairs) initLicensesTab();
+    const target = tab.dataset.tab;
+    document.getElementById('repairsSection').style.display = target === 'repairs' ? 'block' : 'none';
+    document.getElementById('licensesSection').style.display = target === 'licenses' ? 'block' : 'none';
+    document.getElementById('tempSection').style.display = target === 'temp' ? 'block' : 'none';
+    if(target === 'licenses') initLicensesTab();
+    if(target === 'temp') initTempTab();
   });
 });
 
@@ -1091,6 +1156,170 @@ async function loadAuditLog(branchNumber){
     emptyEl.textContent = dict[getLang()].auditLogError;
   }
 }
+
+// ==============================================================
+// سجل درجات الحرارة والرطوبة اليومي
+// ==============================================================
+
+const TEMP_RANGES = {
+  fridgeTemp: { min: 2, max: 8 },
+  pharmacyTemp: { min: -100, max: 25 },
+  humidity: { min: -100, max: 60 }
+};
+
+function isOutOfRange(key, value){
+  if(value === '' || value === null || isNaN(Number(value))) return false;
+  const range = TEMP_RANGES[key];
+  const n = Number(value);
+  return n < range.min || n > range.max;
+}
+
+let tempLogsData = [];
+
+async function initTempTab(){
+  const branchFilter = document.getElementById('tempBranchFilter');
+  if(isMainAdmin) branchFilter.style.display = '';
+  await loadTempLogs();
+  renderTempLogs();
+}
+
+async function loadTempLogs(){
+  let q;
+  if(isMainAdmin || myBranchNumber === null){
+    q = query(collection(db, 'temp_logs'));
+  } else {
+    q = query(collection(db, 'temp_logs'), where('branchNumber', '==', String(myBranchNumber)));
+  }
+  const snap = await getDocs(q);
+  tempLogsData = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a,b) => `${b.date||''} ${b.time||''}`.localeCompare(`${a.date||''} ${a.time||''}`));
+
+  if(isMainAdmin){
+    const t = dict[getLang()];
+    const branchFilter = document.getElementById('tempBranchFilter');
+    const branches = [...new Set(tempLogsData.map(r => r.branchNumber).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
+    const prevValue = branchFilter.value;
+    branchFilter.innerHTML = `<option value="">${t.filterAllBranches}</option>` + branches.map(b => `<option value="${b}">${b}</option>`).join('');
+    branchFilter.value = branches.includes(prevValue) ? prevValue : '';
+  }
+}
+
+function filteredTempLogs(){
+  const branchFilter = document.getElementById('tempBranchFilter').value;
+  return tempLogsData.filter(r => !branchFilter || String(r.branchNumber||'') === branchFilter);
+}
+
+function renderTempLogs(){
+  const t = dict[getLang()];
+  const data = filteredTempLogs().slice(0, 60);
+  const body = document.getElementById('tempBody');
+  const empty = document.getElementById('tempEmpty');
+  const table = document.getElementById('tempTable');
+
+  if(data.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  function cell(key, value){
+    const bad = isOutOfRange(key, value);
+    const style = bad ? `color:var(--danger);font-weight:700` : '';
+    return `<span style="${style}">${value ?? ''}${bad ? ' ⚠' : ''}</span>`;
+  }
+
+  body.innerHTML = data.map(r => `
+    <tr>
+      <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
+      <td data-label="${t.col_date}">${r.date || ''}</td>
+      <td data-label="${t.col_time}">${r.time || ''}</td>
+      <td data-label="${t.label_fridgeTemp}">${cell('fridgeTemp', r.fridgeTemp)}</td>
+      <td data-label="${t.label_pharmacyTemp}">${cell('pharmacyTemp', r.pharmacyTemp)}</td>
+      <td data-label="${t.label_humidity}">${cell('humidity', r.humidity)}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('tempBranchFilter').addEventListener('change', renderTempLogs);
+document.getElementById('tempRefreshBtn').addEventListener('click', async () => { await loadTempLogs(); renderTempLogs(); });
+
+document.getElementById('tempSection').addEventListener('input', (e) => {
+  if(e.target.classList.contains('field-error') && e.target.value.trim()) e.target.classList.remove('field-error');
+});
+
+document.getElementById('addTempBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const branchNumber = document.getElementById('tempBranch').value.trim();
+  const fridgeTemp = document.getElementById('fridgeTemp').value.trim();
+  const pharmacyTemp = document.getElementById('pharmacyTemp').value.trim();
+  const humidity = document.getElementById('humidity').value.trim();
+  const msgEl = document.getElementById('tempMsg');
+
+  document.querySelectorAll('#tempSection .field-error').forEach(el => el.classList.remove('field-error'));
+  const missing = [];
+  if(!branchNumber) missing.push(document.getElementById('tempBranch'));
+  if(!fridgeTemp) missing.push(document.getElementById('fridgeTemp'));
+  if(!pharmacyTemp) missing.push(document.getElementById('pharmacyTemp'));
+  if(!humidity) missing.push(document.getElementById('humidity'));
+
+  if(missing.length > 0){
+    msgEl.textContent = t.errRequired_temp;
+    msgEl.className = 'msg show err';
+    missing.forEach(el => el.classList.add('field-error'));
+    missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  const now = new Date();
+  const date = now.toISOString().slice(0,10);
+  const time = now.toTimeString().slice(0,5);
+
+  const btn = document.getElementById('addTempBtn');
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    await addDoc(collection(db, 'temp_logs'), {
+      branchNumber, fridgeTemp, pharmacyTemp, humidity, date, time,
+      recordedBy: auth.currentUser?.email || '',
+      createdAt: serverTimestamp()
+    });
+    document.getElementById('fridgeTemp').value = '';
+    document.getElementById('pharmacyTemp').value = '';
+    document.getElementById('humidity').value = '';
+
+    const outOfRange = isOutOfRange('fridgeTemp', fridgeTemp) || isOutOfRange('pharmacyTemp', pharmacyTemp) || isOutOfRange('humidity', humidity);
+    msgEl.textContent = outOfRange ? t.tempOutOfRangeMsg : t.successMsg;
+    msgEl.className = 'msg show ' + (outOfRange ? 'err' : 'ok');
+
+    await loadTempLogs();
+    renderTempLogs();
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  } finally {
+    btn.disabled = false; btn.textContent = t.addTempBtn;
+  }
+});
+
+document.getElementById('tempExportBtn').addEventListener('click', () => {
+  const t = dict[getLang()];
+  const lang = getLang();
+  const rows = filteredTempLogs().map(r => ({
+    [t.col_branchNumber]: r.branchNumber || '',
+    [t.col_date]: r.date || '',
+    [t.col_time]: r.time || '',
+    [t.label_fridgeTemp]: r.fridgeTemp || '',
+    [t.label_pharmacyTemp]: r.pharmacyTemp || '',
+    [t.label_humidity]: r.humidity || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, t.tab_temp);
+  XLSX.writeFile(wb, (lang === 'ar' ? 'سجل_الحرارة_والرطوبة' : 'temperature_humidity_log') + '.xlsx');
+});
 </script>
 </body>
 </html>
