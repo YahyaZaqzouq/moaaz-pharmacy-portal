@@ -303,6 +303,18 @@ const loginMsg = document.getElementById('loginMsg');
 
 const statusKey = { ar: { open: 'تحت الإجراء', done: 'تم الإصلاح' }, en: { open: 'In Progress', done: 'Fixed' } };
 
+function formatTimeAMPM(timeStr, lang){
+  if(!timeStr) return '';
+  const parts = timeStr.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts[1] || '00';
+  if(isNaN(h)) return timeStr;
+  const period = h < 12 ? (lang === 'ar' ? 'صباحًا' : 'AM') : (lang === 'ar' ? 'مساءً' : 'PM');
+  let hour12 = h % 12;
+  if(hour12 === 0) hour12 = 12;
+  return `${String(hour12).padStart(2,'0')}:${m} ${period}`;
+}
+
 let repairsData = [];
 let myBranchNumber = null;
 let isMainAdmin = false;
@@ -1210,7 +1222,8 @@ function filteredTempLogs(){
 }
 
 function renderTempLogs(){
-  const t = dict[getLang()];
+  const lang = getLang();
+  const t = dict[lang];
   const data = filteredTempLogs().slice(0, 60);
   const body = document.getElementById('tempBody');
   const empty = document.getElementById('tempEmpty');
@@ -1235,7 +1248,7 @@ function renderTempLogs(){
     <tr>
       <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
-      <td data-label="${t.col_time}">${r.time || ''}</td>
+      <td data-label="${t.col_time}">${formatTimeAMPM(r.time, lang)}</td>
       <td data-label="${t.label_fridgeTemp}">${cell('fridgeTemp', r.fridgeTemp)}</td>
       <td data-label="${t.label_pharmacyTemp}">${cell('pharmacyTemp', r.pharmacyTemp)}</td>
       <td data-label="${t.label_humidity}">${cell('humidity', r.humidity)}</td>
@@ -1310,7 +1323,7 @@ document.getElementById('tempExportBtn').addEventListener('click', () => {
   const rows = filteredTempLogs().map(r => ({
     [t.col_branchNumber]: r.branchNumber || '',
     [t.col_date]: r.date || '',
-    [t.col_time]: r.time || '',
+    [t.col_time]: formatTimeAMPM(r.time, lang),
     [t.label_fridgeTemp]: r.fridgeTemp || '',
     [t.label_pharmacyTemp]: r.pharmacyTemp || '',
     [t.label_humidity]: r.humidity || ''
