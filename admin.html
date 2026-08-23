@@ -7,6 +7,9 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -79,9 +82,17 @@
           <button class="btn btn-primary btn-block" id="generateQrBtn" data-i18n="qrGenerateBtn">توليد / عرض الكود</button>
         </div>
       </div>
-      <div id="qrResult" style="display:none;margin-top:16px;text-align:center">
-        <img id="qrImage" style="max-width:220px;width:100%;border-radius:12px;border:1px solid var(--line)">
+      <div id="qrResult" style="display:none;margin-top:16px">
+        <div id="qrPrintable" style="background:#fff;padding:24px;border-radius:12px;border:1px solid var(--line);text-align:center">
+          <img src="logo.jpg" alt="Moaz Pharmacy" style="height:50px;margin-bottom:14px">
+          <div id="qrBranchLabel" style="font-family:'Cairo',sans-serif;font-weight:800;font-size:18px;color:var(--ink);margin-bottom:14px"></div>
+          <div id="qrCanvasContainer" style="display:flex;justify-content:center"></div>
+          <div id="qrCaption" style="font-size:13px;color:var(--ink-soft);margin-top:14px"></div>
+        </div>
         <div class="hint" style="margin-top:10px;word-break:break-all" id="qrLinkText"></div>
+        <div class="actions">
+          <button class="btn btn-primary btn-block" id="downloadQrPdfBtn" data-i18n="qrDownloadPdfBtn">تحميل الكود PDF</button>
+        </div>
       </div>
       <div class="msg" id="qrMsg"></div>
     </div>
@@ -142,6 +153,7 @@
         <select id="attBranchFilter">
           <option value="" data-i18n="filterAllBranches">كل الفروع</option>
         </select>
+        <button class="btn btn-primary" id="attManualBtn" data-i18n="attManualBtn">+ تسجيل يدوي</button>
         <button class="btn btn-ghost" id="attExportBtn" data-i18n="exportBtn">تصدير Excel</button>
         <button class="btn btn-ghost" id="attRefreshBtn" data-i18n="refreshBtn">تحديث</button>
       </div>
@@ -154,6 +166,7 @@
               <th data-i18n="col_date">التاريخ</th>
               <th data-i18n="attCheckInCol">وقت الحضور</th>
               <th data-i18n="attCheckOutCol">وقت الانصراف</th>
+              <th data-i18n="col_actions">الإجراءات</th>
             </tr>
           </thead>
           <tbody id="attBody"></tbody>
@@ -163,6 +176,48 @@
         <div class="icon">📭</div>
         <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
       </div>
+    </div>
+  </div>
+
+  <!-- نافذة التسجيل/التعديل اليدوي للحضور -->
+  <div id="attEditOverlay" style="display:none; position:fixed; inset:0; background:rgba(22,48,43,0.45); z-index:50; align-items:center; justify-content:center; padding:20px;">
+    <div class="card" style="max-width:440px; width:100%; max-height:85vh; overflow-y:auto; margin-bottom:0;">
+      <div class="eyebrow" data-i18n="attManualEyebrow">تسجيل / تعديل يدوي</div>
+      <div class="hint" style="margin-bottom:14px" data-i18n="attManualHint">استخدم ده لو صيدلي أو عامل نسي يسجّل حضوره أو انصرافه. هيتسجل معاه إنه تعديل يدوي وإمتى ومين اللي عمله.</div>
+
+      <label data-i18n="label_idNumber">رقم الهوية / الإقامة</label>
+      <input type="text" id="attEditIdNumber" inputmode="numeric">
+
+      <label data-i18n="label_fullName">الاسم رباعي</label>
+      <input type="text" id="attEditName">
+
+      <div class="field-row">
+        <div>
+          <label data-i18n="label_branchNumber">رقم الفرع</label>
+          <input type="text" id="attEditBranch" inputmode="numeric">
+        </div>
+        <div>
+          <label data-i18n="col_date">التاريخ</label>
+          <input type="date" id="attEditDate">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label data-i18n="attCheckInCol">وقت الحضور</label>
+          <input type="time" id="attEditCheckIn">
+        </div>
+        <div>
+          <label data-i18n="attCheckOutCol">وقت الانصراف</label>
+          <input type="time" id="attEditCheckOut">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="attEditSaveBtn" data-i18n="saveBtn">حفظ البيانات</button>
+        <button class="btn btn-ghost" id="attEditCancelBtn" data-i18n="cancelBtn">إلغاء</button>
+      </div>
+      <div class="msg" id="attEditMsg"></div>
     </div>
   </div>
 
@@ -183,7 +238,7 @@
 
 <script type="module">
 import {
-  db, auth, collection, doc, setDoc, getDoc, deleteDoc, updateDoc, getDocs, query, where,
+  db, auth, collection, doc, setDoc, getDoc, deleteDoc, updateDoc, getDocs, query, where, serverTimestamp,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
 import { initLangToggle, getLang, dict } from "./i18n.js";
@@ -751,12 +806,46 @@ document.getElementById('generateQrBtn').addEventListener('click', async () => {
       await setDoc(ref, { branchNumber, token });
     }
     const url = `${location.origin}${location.pathname.replace('admin.html','attendance.html')}?t=${token}`;
+
+    document.getElementById('qrBranchLabel').textContent = `${t.col_branchNumber} ${branchNumber}`;
+    document.getElementById('qrCaption').textContent = t.qrCaption;
     document.getElementById('qrLinkText').textContent = url;
-    document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+
+    const container = document.getElementById('qrCanvasContainer');
+    container.innerHTML = '';
+    new QRCode(container, { text: url, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+
     document.getElementById('qrResult').style.display = 'block';
+    document.getElementById('downloadQrPdfBtn').dataset.branch = branchNumber;
   } catch(e){
     msgEl.textContent = t.errPrefix + e.message;
     msgEl.className = 'msg show err';
+  }
+});
+
+document.getElementById('downloadQrPdfBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('downloadQrPdfBtn');
+  const t = dict[getLang()];
+  const branchNumber = btn.dataset.branch || '';
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    const node = document.getElementById('qrPrintable');
+    const canvas = await html2canvas(node, { scale: 3, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const imgWidth = 120;
+    const imgHeight = (canvas.height / canvas.width) * imgWidth;
+    const x = (pageWidth - imgWidth) / 2;
+    pdf.addImage(imgData, 'PNG', x, 40, imgWidth, imgHeight);
+    pdf.save(`qr-branch-${branchNumber}.pdf`);
+  } catch(e){
+    alert(t.errPrefix + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = t.qrDownloadPdfBtn;
   }
 });
 
@@ -804,20 +893,106 @@ function renderAttendance(){
   empty.style.display = 'none';
   table.style.display = 'table';
 
-  body.innerHTML = data.map(r => `
+  body.innerHTML = data.map(r => {
+    const manualBadge = r.manualEdit ? ` <span style="color:var(--teal);font-size:11px">(${t.attManualBadge})</span>` : '';
+    return `
     <tr>
       <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
-      <td data-label="${t.label_fullName}">${r.name || ''}</td>
+      <td data-label="${t.label_fullName}">${r.name || ''}${manualBadge}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
       <td data-label="${t.attCheckInCol}">${r.checkInTime || '—'}</td>
       <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
+      <td data-label="${t.col_actions}"><button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px" onclick="window.__editAttendance('${r.idNumber}','${r.date}')">${t.editBtn}</button></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 document.getElementById('attSearch').addEventListener('input', renderAttendance);
 document.getElementById('attBranchFilter').addEventListener('change', renderAttendance);
 document.getElementById('attRefreshBtn').addEventListener('click', async () => { await loadAttendance(); renderAttendance(); });
+
+// ==============================================================
+// تسجيل/تعديل يدوي للحضور والانصراف
+// ==============================================================
+
+function openAttEditModal(record){
+  document.getElementById('attEditIdNumber').value = record?.idNumber || '';
+  document.getElementById('attEditIdNumber').disabled = !!record;
+  document.getElementById('attEditName').value = record?.name || '';
+  document.getElementById('attEditBranch').value = record?.branchNumber || '';
+  document.getElementById('attEditDate').value = record?.date || new Date().toISOString().slice(0,10);
+  document.getElementById('attEditDate').disabled = !!record;
+  document.getElementById('attEditCheckIn').value = record?.checkInTime || '';
+  document.getElementById('attEditCheckOut').value = record?.checkOutTime || '';
+  document.getElementById('attEditMsg').className = 'msg';
+  document.getElementById('attEditOverlay').style.display = 'flex';
+}
+
+document.getElementById('attManualBtn').addEventListener('click', () => openAttEditModal(null));
+
+window.__editAttendance = function(idNumber, date){
+  const record = attendanceData.find(r => r.idNumber === idNumber && r.date === date);
+  if(record) openAttEditModal(record);
+};
+
+document.getElementById('attEditCancelBtn').addEventListener('click', () => {
+  document.getElementById('attEditOverlay').style.display = 'none';
+  document.getElementById('attEditIdNumber').disabled = false;
+  document.getElementById('attEditDate').disabled = false;
+});
+
+document.getElementById('attEditSaveBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const msgEl = document.getElementById('attEditMsg');
+
+  const idNumber = document.getElementById('attEditIdNumber').value.trim();
+  const name = document.getElementById('attEditName').value.trim();
+  const branchNumber = document.getElementById('attEditBranch').value.trim();
+  const date = document.getElementById('attEditDate').value;
+  const checkInTime = document.getElementById('attEditCheckIn').value;
+  const checkOutTime = document.getElementById('attEditCheckOut').value;
+
+  document.querySelectorAll('#attEditOverlay .field-error').forEach(el => el.classList.remove('field-error'));
+  const missing = [];
+  if(!idNumber) missing.push(document.getElementById('attEditIdNumber'));
+  if(!name) missing.push(document.getElementById('attEditName'));
+  if(!branchNumber) missing.push(document.getElementById('attEditBranch'));
+  if(!date) missing.push(document.getElementById('attEditDate'));
+  if(!checkInTime) missing.push(document.getElementById('attEditCheckIn'));
+
+  if(missing.length > 0){
+    msgEl.textContent = t.errRequired_allFields;
+    msgEl.className = 'msg show err';
+    missing.forEach(el => el.classList.add('field-error'));
+    return;
+  }
+
+  const btn = document.getElementById('attEditSaveBtn');
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    const docId = `${idNumber}_${date}`;
+    await setDoc(doc(db, 'attendance', docId), {
+      idNumber, name, branchNumber, date, checkInTime,
+      checkOutTime: checkOutTime || null,
+      manualEdit: true,
+      manualEditedBy: auth.currentUser?.email || '',
+      manualEditedAt: serverTimestamp()
+    }, { merge: true });
+
+    document.getElementById('attEditOverlay').style.display = 'none';
+    document.getElementById('attEditIdNumber').disabled = false;
+    document.getElementById('attEditDate').disabled = false;
+    await loadAttendance();
+    renderAttendance();
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  } finally {
+    btn.disabled = false; btn.textContent = t.saveBtn;
+  }
+});
 
 document.getElementById('attExportBtn').addEventListener('click', () => {
   const t = dict[getLang()];
