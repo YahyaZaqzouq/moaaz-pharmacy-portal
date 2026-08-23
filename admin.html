@@ -8,8 +8,6 @@
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -91,7 +89,7 @@
         </div>
         <div class="hint" style="margin-top:10px;word-break:break-all" id="qrLinkText"></div>
         <div class="actions">
-          <button class="btn btn-primary btn-block" id="downloadQrPdfBtn" data-i18n="qrDownloadPdfBtn">تحميل الكود PDF</button>
+          <button class="btn btn-primary btn-block" id="downloadQrPdfBtn" data-i18n="qrPrintBtn">طباعة / حفظ PDF</button>
         </div>
       </div>
       <div class="msg" id="qrMsg"></div>
@@ -805,7 +803,8 @@ document.getElementById('generateQrBtn').addEventListener('click', async () => {
       token = randomToken();
       await setDoc(ref, { branchNumber, token });
     }
-    const url = `${location.origin}${location.pathname.replace('admin.html','attendance.html')}?t=${token}`;
+    const basePath = location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1);
+    const url = `${location.origin}${basePath}attendance.html?t=${token}`;
 
     document.getElementById('qrBranchLabel').textContent = `${t.col_branchNumber} ${branchNumber}`;
     document.getElementById('qrCaption').textContent = t.qrCaption;
@@ -823,30 +822,54 @@ document.getElementById('generateQrBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('downloadQrPdfBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('downloadQrPdfBtn');
+document.getElementById('downloadQrPdfBtn').addEventListener('click', () => {
+  const branchNumber = document.getElementById('downloadQrPdfBtn').dataset.branch || '';
   const t = dict[getLang()];
-  const branchNumber = btn.dataset.branch || '';
-  btn.disabled = true; btn.textContent = t.saving;
+  const lang = getLang();
 
-  try{
-    const node = document.getElementById('qrPrintable');
-    const canvas = await html2canvas(node, { scale: 3, backgroundColor: '#ffffff' });
-    const imgData = canvas.toDataURL('image/png');
+  // الكود بيترسم بتقنية Canvas، ومحتاجين نحوّله لصورة ثابتة الأول قبل ما ننسخه لصفحة الطباعة
+  const canvasEl = document.querySelector('#qrCanvasContainer canvas');
+  const qrDataUrl = canvasEl ? canvasEl.toDataURL('image/png') : '';
+  const branchLabel = document.getElementById('qrBranchLabel').textContent;
+  const caption = document.getElementById('qrCaption').textContent;
 
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const imgWidth = 120;
-    const imgHeight = (canvas.height / canvas.width) * imgWidth;
-    const x = (pageWidth - imgWidth) / 2;
-    pdf.addImage(imgData, 'PNG', x, 40, imgWidth, imgHeight);
-    pdf.save(`qr-branch-${branchNumber}.pdf`);
-  } catch(e){
-    alert(t.errPrefix + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = t.qrDownloadPdfBtn;
+  const printWin = window.open('', '_blank', 'width=500,height=700');
+  if(!printWin){
+    alert(t.popupBlockedMsg);
+    return;
   }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}">
+    <head>
+      <meta charset="UTF-8">
+      <title>QR — ${t.col_branchNumber} ${branchNumber}</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700;800&family=Tajawal:wght@400;500&display=swap');
+        body{ font-family:'Tajawal', sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; background:#fff; }
+        .card{ text-align:center; padding:24px; }
+        .card img.logo{ height:50px; margin-bottom:14px; }
+        .card .label{ font-family:'Cairo', sans-serif; font-weight:800; font-size:18px; margin-bottom:14px; }
+        .card img.qr{ width:240px; height:240px; }
+        .card .caption{ font-size:13px; color:#555; margin-top:14px; }
+        @media print{ body{ min-height:auto; } }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <img class="logo" src="${location.origin}${location.pathname.substring(0, location.pathname.lastIndexOf('/') + 1)}logo.jpg" alt="logo">
+        <div class="label">${branchLabel}</div>
+        <img class="qr" src="${qrDataUrl}" alt="QR">
+        <div class="caption">${caption}</div>
+      </div>
+      <script>
+        window.onload = function(){ setTimeout(function(){ window.print(); }, 400); };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
 });
 
 // ==============================================================
