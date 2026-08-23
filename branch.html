@@ -1409,7 +1409,7 @@ function renderAttendanceView(){
     <tr>
       <td data-label="${t.label_fullName}">${r.name || ''}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
-      <td data-label="${t.attCheckInCol}">${r.checkInTime || '—'}</td>
+      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}</td>
       <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
     </tr>
   `).join('');

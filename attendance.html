@@ -173,29 +173,46 @@ document.getElementById('checkOutBtn').addEventListener('click', async () => {
 
   try{
     const now = new Date();
-    const dateStr = now.toISOString().slice(0,10);
-    const docId = `${entry.idNumber}_${dateStr}`;
-    const ref = doc(db, 'attendance', docId);
-    const existing = await getDoc(ref);
+    const todayStr = now.toISOString().slice(0,10);
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0,10);
 
-    if(!existing.exists() || !existing.data().checkInAt){
-      showMsg(t.mustCheckInFirstMsg, false);
-      return;
+    const todayRef = doc(db, 'attendance', `${entry.idNumber}_${todayStr}`);
+    const yesterdayRef = doc(db, 'attendance', `${entry.idNumber}_${yesterdayStr}`);
+    const [todaySnap, yesterdaySnap] = await Promise.all([getDoc(todayRef), getDoc(yesterdayRef)]);
+
+    // لو فيه حضور من إمبارح لسه مفتوح (من غير انصراف)، الانصراف ده بيخصّه — دوام ليلي عدّى نص الليل
+    let ref = todayRef;
+    let existing = todaySnap;
+    if(yesterdaySnap.exists() && yesterdaySnap.data().checkInAt && !yesterdaySnap.data().checkOutAt){
+      ref = yesterdayRef;
+      existing = yesterdaySnap;
     }
-    if(existing.data().checkOutAt){
+
+    if(existing.exists() && existing.data().checkOutAt){
       showMsg(t.alreadyCheckedOutMsg, false);
       return;
     }
 
+    const missingCheckIn = !existing.exists() || !existing.data().checkInAt;
     const loc = await getLocation();
 
-    await setDoc(ref, {
+    const data = {
+      idNumber: entry.idNumber,
+      name: entry.name,
+      branchNumber,
       checkOutAt: serverTimestamp(),
       checkOutLocation: loc,
       checkOutTime: now.toTimeString().slice(0,5)
-    }, { merge: true });
+    };
+    if(!existing.exists()) data.date = todayStr;
+    if(missingCheckIn) data.missingCheckIn = true;
 
-    showMsg(t.checkOutSuccessMsg, true);
+    await setDoc(ref, data, { merge: true });
+
+    const isOvernight = (ref === yesterdayRef) && !missingCheckIn;
+    showMsg(missingCheckIn ? t.checkOutNoCheckInMsg : (isOvernight ? t.checkOutOvernightMsg : t.checkOutSuccessMsg), true);
   } catch(e){
     showMsg(t.errPrefix + e.message, false);
   } finally {

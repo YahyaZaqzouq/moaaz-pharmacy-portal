@@ -900,7 +900,7 @@ function renderAttendance(){
       <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
       <td data-label="${t.label_fullName}">${r.name || ''}${manualBadge}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
-      <td data-label="${t.attCheckInCol}">${r.checkInTime || '—'}</td>
+      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}</td>
       <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
       <td data-label="${t.col_actions}"><button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px" onclick="window.__editAttendance('${r.idNumber}','${r.date}')">${t.editBtn}</button></td>
     </tr>
