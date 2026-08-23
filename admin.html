@@ -67,10 +67,30 @@
       <button class="btn btn-primary" id="exportIcsBtn" data-i18n="icsExportBtn">تصدير ملف تقويم (.ics)</button>
     </div>
 
+    <div class="card">
+      <div class="eyebrow" data-i18n="qrEyebrow">كود QR للحضور والانصراف</div>
+      <div class="hint" style="margin-bottom:14px" data-i18n="qrHint">اختار رقم الفرع، وهيتولّدلك كود QR خاص بيه — اطبعه وحطه في الفرع. أي صيدلي أو عامل يصوّره بموبايله عشان يسجّل حضوره أو انصرافه.</div>
+      <div class="field-row">
+        <div>
+          <label data-i18n="label_branchNumber">رقم الفرع</label>
+          <input type="text" id="qrBranchInput" inputmode="numeric" data-i18n-placeholder="ph_branchNumber" placeholder="مثال: 29">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary btn-block" id="generateQrBtn" data-i18n="qrGenerateBtn">توليد / عرض الكود</button>
+        </div>
+      </div>
+      <div id="qrResult" style="display:none;margin-top:16px;text-align:center">
+        <img id="qrImage" style="max-width:220px;width:100%;border-radius:12px;border:1px solid var(--line)">
+        <div class="hint" style="margin-top:10px;word-break:break-all" id="qrLinkText"></div>
+      </div>
+      <div class="msg" id="qrMsg"></div>
+    </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="pharmacists" data-i18n="tab_pharmacists">الصيادلة</div>
       <div class="tab" data-tab="workers" data-i18n="tab_workers">العمال</div>
       <div class="tab" data-tab="ranking" data-i18n="tab_ranking">ترتيب الفروع</div>
+      <div class="tab" data-tab="attendance" data-i18n="tab_attendance">الحضور والانصراف</div>
     </div>
 
     <div id="dataView">
@@ -115,6 +135,35 @@
         <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
       </div>
     </div>
+
+    <div id="attendanceView" style="display:none">
+      <div class="toolbar">
+        <input type="text" id="attSearch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+        <select id="attBranchFilter">
+          <option value="" data-i18n="filterAllBranches">كل الفروع</option>
+        </select>
+        <button class="btn btn-ghost" id="attExportBtn" data-i18n="exportBtn">تصدير Excel</button>
+        <button class="btn btn-ghost" id="attRefreshBtn" data-i18n="refreshBtn">تحديث</button>
+      </div>
+      <div class="table-scroll">
+        <table id="attTable">
+          <thead>
+            <tr>
+              <th data-i18n="col_branchNumber">رقم الفرع</th>
+              <th data-i18n="label_fullName">الاسم رباعي</th>
+              <th data-i18n="col_date">التاريخ</th>
+              <th data-i18n="attCheckInCol">وقت الحضور</th>
+              <th data-i18n="attCheckOutCol">وقت الانصراف</th>
+            </tr>
+          </thead>
+          <tbody id="attBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="attEmpty" style="display:none">
+        <div class="icon">📭</div>
+        <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+      </div>
+    </div>
   </div>
 
   <!-- نافذة التعديل -->
@@ -134,7 +183,7 @@
 
 <script type="module">
 import {
-  db, auth, collection, doc, setDoc, deleteDoc, updateDoc, getDocs,
+  db, auth, collection, doc, setDoc, getDoc, deleteDoc, updateDoc, getDocs, query, where,
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "./firebase-config.js";
 import { initLangToggle, getLang, dict } from "./i18n.js";
@@ -145,6 +194,7 @@ document.getElementById('langToggle').addEventListener('click', () => {
   renderTable();
   renderAlertsFeed();
   if(document.getElementById('rankingView').style.display !== 'none') renderRanking();
+  if(document.getElementById('attendanceView').style.display !== 'none') renderAttendance();
 });
 
 const loginCard = document.getElementById('loginCard');
@@ -479,13 +529,18 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     const target = tab.dataset.tab;
 
+    document.getElementById('dataView').style.display = 'none';
+    document.getElementById('rankingView').style.display = 'none';
+    document.getElementById('attendanceView').style.display = 'none';
+
     if(target === 'ranking'){
-      document.getElementById('dataView').style.display = 'none';
       document.getElementById('rankingView').style.display = 'block';
       renderRanking();
+    } else if(target === 'attendance'){
+      document.getElementById('attendanceView').style.display = 'block';
+      loadAttendance().then(renderAttendance);
     } else {
       document.getElementById('dataView').style.display = 'block';
-      document.getElementById('rankingView').style.display = 'none';
       currentTab = target;
       document.getElementById('searchBox').value = '';
       renderTable();
@@ -661,6 +716,122 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   const fileName = (currentTab === 'pharmacists' ? t.fileName_pharmacists : t.fileName_workers) + '.xlsx';
   XLSX.writeFile(wb, fileName);
+});
+
+// ==============================================================
+// كود QR للحضور والانصراف
+// ==============================================================
+
+function randomToken(len = 24){
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+
+document.getElementById('generateQrBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const branchNumber = document.getElementById('qrBranchInput').value.trim();
+  const msgEl = document.getElementById('qrMsg');
+  if(!branchNumber){
+    msgEl.textContent = t.errRequired_branchNumber;
+    msgEl.className = 'msg show err';
+    return;
+  }
+  msgEl.className = 'msg';
+
+  try{
+    const ref = doc(db, 'branch_qr_tokens', branchNumber);
+    const snap = await getDoc(ref);
+    let token;
+    if(snap.exists()){
+      token = snap.data().token;
+    } else {
+      token = randomToken();
+      await setDoc(ref, { branchNumber, token });
+    }
+    const url = `${location.origin}${location.pathname.replace('admin.html','attendance.html')}?t=${token}`;
+    document.getElementById('qrLinkText').textContent = url;
+    document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+    document.getElementById('qrResult').style.display = 'block';
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  }
+});
+
+// ==============================================================
+// تقرير الحضور والانصراف
+// ==============================================================
+
+let attendanceData = [];
+
+async function loadAttendance(){
+  const snap = await getDocs(collection(db, 'attendance'));
+  attendanceData = snap.docs.map(d => d.data())
+    .sort((a,b) => `${b.date||''} ${b.checkInTime||''}`.localeCompare(`${a.date||''} ${a.checkInTime||''}`));
+
+  const t = dict[getLang()];
+  const branchFilter = document.getElementById('attBranchFilter');
+  const branches = [...new Set(attendanceData.map(r => r.branchNumber).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
+  const prevValue = branchFilter.value;
+  branchFilter.innerHTML = `<option value="">${t.filterAllBranches}</option>` + branches.map(b => `<option value="${b}">${b}</option>`).join('');
+  branchFilter.value = branches.includes(prevValue) ? prevValue : '';
+}
+
+function filteredAttendance(){
+  const q = document.getElementById('attSearch').value.trim();
+  const branchFilter = document.getElementById('attBranchFilter').value;
+  return attendanceData.filter(r =>
+    (!q || (r.name||'').includes(q) || String(r.branchNumber||'').includes(q)) &&
+    (!branchFilter || String(r.branchNumber||'') === branchFilter)
+  );
+}
+
+function renderAttendance(){
+  const t = dict[getLang()];
+  const data = filteredAttendance().slice(0, 200);
+  const body = document.getElementById('attBody');
+  const empty = document.getElementById('attEmpty');
+  const table = document.getElementById('attTable');
+
+  if(data.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  body.innerHTML = data.map(r => `
+    <tr>
+      <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
+      <td data-label="${t.label_fullName}">${r.name || ''}</td>
+      <td data-label="${t.col_date}">${r.date || ''}</td>
+      <td data-label="${t.attCheckInCol}">${r.checkInTime || '—'}</td>
+      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('attSearch').addEventListener('input', renderAttendance);
+document.getElementById('attBranchFilter').addEventListener('change', renderAttendance);
+document.getElementById('attRefreshBtn').addEventListener('click', async () => { await loadAttendance(); renderAttendance(); });
+
+document.getElementById('attExportBtn').addEventListener('click', () => {
+  const t = dict[getLang()];
+  const rows = filteredAttendance().map(r => ({
+    [t.col_branchNumber]: r.branchNumber || '',
+    [t.label_fullName]: r.name || '',
+    [t.col_date]: r.date || '',
+    [t.attCheckInCol]: r.checkInTime || '',
+    [t.attCheckOutCol]: r.checkOutTime || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, t.tab_attendance);
+  XLSX.writeFile(wb, (getLang() === 'ar' ? 'سجل_الحضور_والانصراف' : 'attendance_log') + '.xlsx');
 });
 </script>
 </body>

@@ -41,6 +41,7 @@
       <div class="tab active" data-tab="repairs" data-i18n="tab_repairs">الإصلاحات المطلوبة</div>
       <div class="tab" data-tab="licenses" data-i18n="tab_licenses">التراخيص</div>
       <div class="tab" data-tab="temp" data-i18n="tab_temp">سجل الحرارة والرطوبة</div>
+      <div class="tab" data-tab="attendance" data-i18n="tab_attendance">الحضور والانصراف</div>
     </div>
 
     <!-- قسم تحويل التاريخ الهجري -->
@@ -285,6 +286,33 @@
       </div>
     </div>
 
+    <!-- قسم الحضور والانصراف (عرض فقط) -->
+    <div id="attendanceSection" style="display:none">
+      <div class="hint" style="margin-bottom:14px" data-i18n="attViewHint">التسجيل نفسه بيتم من صفحة منفصلة عن طريق كود QR الخاص بالفرع (متاح من لوحة المسؤول). هنا بس عرض للسجل.</div>
+      <div class="toolbar">
+        <input type="text" id="attSearchBranch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
+        <button class="btn btn-ghost" id="attExportBtnBranch" data-i18n="exportBtn">تصدير Excel</button>
+        <button class="btn btn-ghost" id="attRefreshBtnBranch" data-i18n="refreshBtn">تحديث</button>
+      </div>
+      <div class="table-scroll">
+        <table id="attTableBranch">
+          <thead>
+            <tr>
+              <th data-i18n="label_fullName">الاسم رباعي</th>
+              <th data-i18n="col_date">التاريخ</th>
+              <th data-i18n="attCheckInCol">وقت الحضور</th>
+              <th data-i18n="attCheckOutCol">وقت الانصراف</th>
+            </tr>
+          </thead>
+          <tbody id="attBodyBranch"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="attEmptyBranch" style="display:none">
+        <div class="icon">📭</div>
+        <span data-i18n="emptyState">لا توجد بيانات لعرضها بعد</span>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -373,8 +401,10 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById('repairsSection').style.display = target === 'repairs' ? 'block' : 'none';
     document.getElementById('licensesSection').style.display = target === 'licenses' ? 'block' : 'none';
     document.getElementById('tempSection').style.display = target === 'temp' ? 'block' : 'none';
+    document.getElementById('attendanceSection').style.display = target === 'attendance' ? 'block' : 'none';
     if(target === 'licenses') initLicensesTab();
     if(target === 'temp') initTempTab();
+    if(target === 'attendance') initAttendanceTab();
   });
 });
 
@@ -1329,6 +1359,78 @@ document.getElementById('tempExportBtn').addEventListener('click', () => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, t.tab_temp);
   XLSX.writeFile(wb, (lang === 'ar' ? 'سجل_الحرارة_والرطوبة' : 'temperature_humidity_log') + '.xlsx');
+});
+
+// ==============================================================
+// عرض سجل الحضور والانصراف (للفرع، عرض فقط)
+// ==============================================================
+
+let attendanceViewData = [];
+
+async function initAttendanceTab(){
+  await loadAttendanceView();
+  renderAttendanceView();
+}
+
+async function loadAttendanceView(){
+  let q;
+  if(isMainAdmin || myBranchNumber === null){
+    q = query(collection(db, 'attendance'));
+  } else {
+    q = query(collection(db, 'attendance'), where('branchNumber', '==', String(myBranchNumber)));
+  }
+  const snap = await getDocs(q);
+  attendanceViewData = snap.docs.map(d => d.data())
+    .sort((a,b) => `${b.date||''} ${b.checkInTime||''}`.localeCompare(`${a.date||''} ${a.checkInTime||''}`));
+}
+
+function filteredAttendanceView(){
+  const q = document.getElementById('attSearchBranch').value.trim();
+  return attendanceViewData.filter(r => !q || (r.name||'').includes(q) || String(r.branchNumber||'').includes(q));
+}
+
+function renderAttendanceView(){
+  const t = dict[getLang()];
+  const data = filteredAttendanceView().slice(0, 200);
+  const body = document.getElementById('attBodyBranch');
+  const empty = document.getElementById('attEmptyBranch');
+  const table = document.getElementById('attTableBranch');
+
+  if(data.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    table.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  body.innerHTML = data.map(r => `
+    <tr>
+      <td data-label="${t.label_fullName}">${r.name || ''}</td>
+      <td data-label="${t.col_date}">${r.date || ''}</td>
+      <td data-label="${t.attCheckInCol}">${r.checkInTime || '—'}</td>
+      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('attSearchBranch').addEventListener('input', renderAttendanceView);
+document.getElementById('attRefreshBtnBranch').addEventListener('click', async () => { await loadAttendanceView(); renderAttendanceView(); });
+
+document.getElementById('attExportBtnBranch').addEventListener('click', () => {
+  const t = dict[getLang()];
+  const rows = filteredAttendanceView().map(r => ({
+    [t.col_branchNumber]: r.branchNumber || '',
+    [t.label_fullName]: r.name || '',
+    [t.col_date]: r.date || '',
+    [t.attCheckInCol]: r.checkInTime || '',
+    [t.attCheckOutCol]: r.checkOutTime || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, t.tab_attendance);
+  XLSX.writeFile(wb, (getLang() === 'ar' ? 'سجل_الحضور_والانصراف' : 'attendance_log') + '.xlsx');
 });
 </script>
 </body>

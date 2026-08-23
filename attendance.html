@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="title_attendance">تسجيل حضور وانصراف — صيدلية معاذ</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <img src="logo.jpg" alt="Moaz Pharmacy" class="logo-img">
+    <div class="titles">
+      <h1 class="page-title" data-i18n="pageHeading_attendance">تسجيل حضور وانصراف</h1>
+    </div>
+    <button class="lang-toggle" id="langToggle">English</button>
+  </div>
+
+  <!-- حالة: كود غير صالح -->
+  <div class="card" id="invalidCard" style="display:none">
+    <div class="eyebrow" data-i18n="invalidQrEyebrow">كود غير صالح</div>
+    <div class="hint" data-i18n="invalidQrHint">اللينك ده مش مرتبط بأي فرع. تأكد إنك ماسح كود QR الأصلي الموجود في الفرع.</div>
+  </div>
+
+  <!-- الفورم -->
+  <div class="card" id="attCard" style="display:none">
+    <div class="branch-chip" style="margin-bottom:18px">
+      <span class="dot" id="branchDot"></span>
+      <span id="branchLabel"></span>
+    </div>
+
+    <label data-i18n="label_idNumber">رقم الهوية / الإقامة</label>
+    <input type="text" id="idNumber" inputmode="numeric" data-i18n-placeholder="ph_idNumber" placeholder="مثال: 1023456789">
+
+    <label data-i18n="label_fullName">الاسم رباعي</label>
+    <input type="text" id="fullName" data-i18n-placeholder="ph_fullName" placeholder="الاسم الأول الأب الجد العائلة">
+
+    <div class="actions">
+      <button class="btn btn-primary btn-block" id="checkInBtn" data-i18n="checkInBtn">تسجيل حضور</button>
+    </div>
+    <div class="actions" style="margin-top:0">
+      <button class="btn btn-ghost btn-block" id="checkOutBtn" data-i18n="checkOutBtn">تسجيل انصراف</button>
+    </div>
+
+    <div class="msg" id="attMsg"></div>
+    <div class="hint" style="margin-top:16px" data-i18n="attHint">هيتم تسجيل التاريخ والوقت تلقائيًا من الخادم وقت الضغط، ومحاولة تحديد موقعك الجغرافي إن كان متاحًا.</div>
+  </div>
+
+</div>
+
+<script type="module">
+import { db, doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp } from "./firebase-config.js";
+import { initLangToggle, getLang, dict } from "./i18n.js";
+
+initLangToggle();
+
+const params = new URLSearchParams(location.search);
+const token = params.get('t');
+
+let branchNumber = null;
+
+async function resolveToken(){
+  if(!token){
+    document.getElementById('invalidCard').style.display = 'block';
+    return;
+  }
+  try{
+    const q = query(collection(db, 'branch_qr_tokens'), where('token', '==', token));
+    const snap = await getDocs(q);
+    if(snap.empty){
+      document.getElementById('invalidCard').style.display = 'block';
+      return;
+    }
+    branchNumber = snap.docs[0].data().branchNumber;
+    const t = dict[getLang()];
+    document.getElementById('branchLabel').textContent = `${t.col_branchNumber} ${branchNumber}`;
+    document.getElementById('attCard').style.display = 'block';
+  } catch(e){
+    document.getElementById('invalidCard').style.display = 'block';
+  }
+}
+resolveToken();
+
+document.getElementById('langToggle').addEventListener('click', () => {
+  if(branchNumber !== null){
+    const t = dict[getLang()];
+    document.getElementById('branchLabel').textContent = `${t.col_branchNumber} ${branchNumber}`;
+  }
+});
+
+function getLocation(){
+  return new Promise(resolve => {
+    if(!navigator.geolocation){ resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 6000 }
+    );
+  });
+}
+
+function showMsg(text, ok){
+  const el = document.getElementById('attMsg');
+  el.textContent = text;
+  el.className = 'msg show ' + (ok ? 'ok' : 'err');
+}
+
+function validateEntry(){
+  const t = dict[getLang()];
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+  const idEl = document.getElementById('idNumber');
+  const nameEl = document.getElementById('fullName');
+  const missing = [];
+  if(!idEl.value.trim()) missing.push(idEl);
+  if(!nameEl.value.trim()) missing.push(nameEl);
+  if(missing.length > 0){
+    showMsg(t.errRequired_attendance, false);
+    missing.forEach(el => el.classList.add('field-error'));
+    missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return null;
+  }
+  return { idNumber: idEl.value.trim(), name: nameEl.value.trim() };
+}
+
+document.getElementById('checkInBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const entry = validateEntry();
+  if(!entry) return;
+
+  const btn = document.getElementById('checkInBtn');
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10);
+    const docId = `${entry.idNumber}_${dateStr}`;
+    const ref = doc(db, 'attendance', docId);
+    const existing = await getDoc(ref);
+
+    if(existing.exists() && existing.data().checkInAt){
+      showMsg(t.alreadyCheckedInMsg, false);
+      return;
+    }
+
+    const loc = await getLocation();
+
+    await setDoc(ref, {
+      idNumber: entry.idNumber,
+      name: entry.name,
+      branchNumber,
+      date: dateStr,
+      checkInAt: serverTimestamp(),
+      checkInLocation: loc,
+      checkInTime: now.toTimeString().slice(0,5)
+    }, { merge: true });
+
+    showMsg(t.checkInSuccessMsg, true);
+  } catch(e){
+    showMsg(t.errPrefix + e.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = t.checkInBtn;
+  }
+});
+
+document.getElementById('checkOutBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const entry = validateEntry();
+  if(!entry) return;
+
+  const btn = document.getElementById('checkOutBtn');
+  btn.disabled = true; btn.textContent = t.saving;
+
+  try{
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10);
+    const docId = `${entry.idNumber}_${dateStr}`;
+    const ref = doc(db, 'attendance', docId);
+    const existing = await getDoc(ref);
+
+    if(!existing.exists() || !existing.data().checkInAt){
+      showMsg(t.mustCheckInFirstMsg, false);
+      return;
+    }
+    if(existing.data().checkOutAt){
+      showMsg(t.alreadyCheckedOutMsg, false);
+      return;
+    }
+
+    const loc = await getLocation();
+
+    await setDoc(ref, {
+      checkOutAt: serverTimestamp(),
+      checkOutLocation: loc,
+      checkOutTime: now.toTimeString().slice(0,5)
+    }, { merge: true });
+
+    showMsg(t.checkOutSuccessMsg, true);
+  } catch(e){
+    showMsg(t.errPrefix + e.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = t.checkOutBtn;
+  }
+});
+</script>
+</body>
+</html>
