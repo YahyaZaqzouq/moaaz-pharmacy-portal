@@ -294,6 +294,23 @@
         <button class="btn btn-ghost" id="attExportBtnBranch" data-i18n="exportBtn">تصدير Excel</button>
         <button class="btn btn-ghost" id="attRefreshBtnBranch" data-i18n="refreshBtn">تحديث</button>
       </div>
+
+      <div class="card" id="attSummaryCardBranch" style="display:none">
+        <div class="eyebrow" data-i18n="attSummaryEyebrow">إجمالي ساعات الدوام لكل فرد</div>
+        <div class="table-scroll">
+          <table id="attSummaryTableBranch">
+            <thead>
+              <tr>
+                <th data-i18n="label_fullName">الاسم رباعي</th>
+                <th data-i18n="attDaysCol">عدد الأيام</th>
+                <th data-i18n="attHoursCol">إجمالي الساعات</th>
+              </tr>
+            </thead>
+            <tbody id="attSummaryBodyBranch"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="table-scroll">
         <table id="attTableBranch">
           <thead>
@@ -302,6 +319,7 @@
               <th data-i18n="col_date">التاريخ</th>
               <th data-i18n="attCheckInCol">وقت الحضور</th>
               <th data-i18n="attCheckOutCol">وقت الانصراف</th>
+              <th data-i18n="attHoursCol">ساعات الدوام</th>
             </tr>
           </thead>
           <tbody id="attBodyBranch"></tbody>
@@ -1384,9 +1402,49 @@ async function loadAttendanceView(){
     .sort((a,b) => `${b.date||''} ${b.checkInTime||''}`.localeCompare(`${a.date||''} ${a.checkInTime||''}`));
 }
 
+function calcWorkHours(checkInTime, checkOutTime){
+  if(!checkInTime || !checkOutTime) return null;
+  const [inH, inM] = checkInTime.split(':').map(Number);
+  const [outH, outM] = checkOutTime.split(':').map(Number);
+  if(isNaN(inH) || isNaN(outH)) return null;
+  let mins = (outH*60 + outM) - (inH*60 + inM);
+  if(mins < 0) mins += 24*60;
+  return mins / 60;
+}
+
+function formatHours(hours, lang){
+  if(hours === null) return '—';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return lang === 'ar' ? `${h}س ${m}د` : `${h}h ${m}m`;
+}
+
 function filteredAttendanceView(){
   const q = document.getElementById('attSearchBranch').value.trim();
   return attendanceViewData.filter(r => !q || (r.name||'').includes(q) || String(r.branchNumber||'').includes(q));
+}
+
+function renderAttendanceSummaryBranch(data){
+  const t = dict[getLang()];
+  const groups = {};
+  data.forEach(r => {
+    const key = r.idNumber || r.name;
+    if(!groups[key]) groups[key] = { name: r.name, days: 0, totalHours: 0 };
+    const hours = calcWorkHours(r.checkInTime, r.checkOutTime);
+    if(hours !== null){ groups[key].days++; groups[key].totalHours += hours; }
+  });
+  const rows = Object.values(groups).filter(g => g.days > 0).sort((a,b) => b.totalHours - a.totalHours);
+  const card = document.getElementById('attSummaryCardBranch');
+  const body = document.getElementById('attSummaryBodyBranch');
+  if(rows.length === 0){ card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  body.innerHTML = rows.map(g => `
+    <tr>
+      <td data-label="${t.label_fullName}">${g.name || ''}</td>
+      <td data-label="${t.attDaysCol}">${g.days}</td>
+      <td data-label="${t.attHoursCol}"><strong>${formatHours(g.totalHours, getLang())}</strong></td>
+    </tr>
+  `).join('');
 }
 
 function renderAttendanceView(){
@@ -1400,19 +1458,26 @@ function renderAttendanceView(){
     body.innerHTML = '';
     empty.style.display = 'block';
     table.style.display = 'none';
+    document.getElementById('attSummaryCardBranch').style.display = 'none';
     return;
   }
   empty.style.display = 'none';
   table.style.display = 'table';
 
-  body.innerHTML = data.map(r => `
+  body.innerHTML = data.map(r => {
+    const hours = calcWorkHours(r.checkInTime, r.checkOutTime);
+    return `
     <tr>
       <td data-label="${t.label_fullName}">${r.name || ''}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
       <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}</td>
       <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
+      <td data-label="${t.attHoursCol}">${formatHours(hours, getLang())}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
+
+  renderAttendanceSummaryBranch(data);
 }
 
 document.getElementById('attSearchBranch').addEventListener('input', renderAttendanceView);
@@ -1420,16 +1485,37 @@ document.getElementById('attRefreshBtnBranch').addEventListener('click', async (
 
 document.getElementById('attExportBtnBranch').addEventListener('click', () => {
   const t = dict[getLang()];
-  const rows = filteredAttendanceView().map(r => ({
-    [t.col_branchNumber]: r.branchNumber || '',
-    [t.label_fullName]: r.name || '',
-    [t.col_date]: r.date || '',
-    [t.attCheckInCol]: r.checkInTime || '',
-    [t.attCheckOutCol]: r.checkOutTime || ''
+  const lang = getLang();
+  const data = filteredAttendanceView();
+
+  const rows = data.map(r => {
+    const hours = calcWorkHours(r.checkInTime, r.checkOutTime);
+    return {
+      [t.col_branchNumber]: r.branchNumber || '',
+      [t.label_fullName]: r.name || '',
+      [t.col_date]: r.date || '',
+      [t.attCheckInCol]: r.checkInTime || '',
+      [t.attCheckOutCol]: r.checkOutTime || '',
+      [t.attHoursCol]: hours !== null ? Math.round(hours * 100) / 100 : ''
+    };
+  });
+
+  const groups = {};
+  data.forEach(r => {
+    const key = r.idNumber || r.name;
+    if(!groups[key]) groups[key] = { name: r.name, days: 0, totalHours: 0 };
+    const hours = calcWorkHours(r.checkInTime, r.checkOutTime);
+    if(hours !== null){ groups[key].days++; groups[key].totalHours += hours; }
+  });
+  const summaryRows = Object.values(groups).filter(g => g.days > 0).sort((a,b) => b.totalHours - a.totalHours).map(g => ({
+    [t.label_fullName]: g.name || '',
+    [t.attDaysCol]: g.days,
+    [t.attHoursCol]: Math.round(g.totalHours * 100) / 100
   }));
-  const ws = XLSX.utils.json_to_sheet(rows);
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, t.tab_attendance);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), t.tab_attendance);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), t.attSummaryEyebrow);
   XLSX.writeFile(wb, (getLang() === 'ar' ? 'سجل_الحضور_والانصراف' : 'attendance_log') + '.xlsx');
 });
 </script>

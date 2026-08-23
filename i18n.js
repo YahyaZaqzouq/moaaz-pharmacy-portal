@@ -203,6 +203,9 @@ export const dict = {
     qrCaption: "امسح الكود بموبايلك لتسجيل الحضور أو الانصراف",
     attCheckInCol: "وقت الحضور",
     attCheckOutCol: "وقت الانصراف",
+    attHoursCol: "ساعات الدوام",
+    attDaysCol: "عدد الأيام",
+    attSummaryEyebrow: "إجمالي ساعات الدوام لكل فرد",
     attNotCheckedOut: "لسه ماخرجش",
     attViewHint: "التسجيل نفسه بيتم من صفحة منفصلة عن طريق كود QR الخاص بالفرع (متاح من لوحة المسؤول). هنا بس عرض للسجل.",
 
@@ -463,6 +466,9 @@ export const dict = {
     qrCaption: "Scan with your phone to check in or check out",
     attCheckInCol: "Check-In Time",
     attCheckOutCol: "Check-Out Time",
+    attHoursCol: "Working Hours",
+    attDaysCol: "Days",
+    attSummaryEyebrow: "Total Working Hours Per Person",
     attNotCheckedOut: "Not checked out yet",
     attViewHint: "Check-in/out itself happens on a separate page reached via the branch's QR code (available from the admin dashboard). This is a view-only log.",
 
