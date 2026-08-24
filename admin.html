@@ -175,6 +175,10 @@
         <select id="attBranchFilter">
           <option value="" data-i18n="filterAllBranches">كل الفروع</option>
         </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink-soft);white-space:nowrap">
+          <input type="checkbox" id="attFarOnlyFilter" style="width:auto">
+          <span data-i18n="gpsFarOnlyFilter">البعيدين عن الفرع بس</span>
+        </label>
         <button class="btn btn-primary" id="attManualBtn" data-i18n="attManualBtn">+ تسجيل يدوي</button>
         <button class="btn btn-ghost" id="attExportBtn" data-i18n="exportBtn">تصدير Excel</button>
         <button class="btn btn-ghost" id="attRefreshBtn" data-i18n="refreshBtn">تحديث</button>
@@ -1008,9 +1012,11 @@ async function loadAttendance(){
 function filteredAttendance(){
   const q = document.getElementById('attSearch').value.trim();
   const branchFilter = document.getElementById('attBranchFilter').value;
+  const farOnly = document.getElementById('attFarOnlyFilter').checked;
   return attendanceData.filter(r =>
     (!q || (r.name||'').includes(q) || String(r.branchNumber||'').includes(q)) &&
-    (!branchFilter || String(r.branchNumber||'') === branchFilter)
+    (!branchFilter || String(r.branchNumber||'') === branchFilter) &&
+    (!farOnly || r.checkInLocationFlag || r.checkOutLocationFlag)
   );
 }
 
@@ -1038,8 +1044,8 @@ function renderAttendance(){
       <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
       <td data-label="${t.label_fullName}">${r.name || ''}${manualBadge}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
-      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}${r.checkInLocationFlag ? ` <span title="${t.gpsFarTooltip} (${r.checkInDistance}m)" style="color:var(--danger)">📍</span>` : ''}</td>
-      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}${r.checkOutLocationFlag ? ` <span title="${t.gpsFarTooltip} (${r.checkOutDistance}m)" style="color:var(--danger)">📍</span>` : ''}</td>
+      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}${r.checkInLocationFlag ? `<br><span style="color:var(--danger);font-size:11.5px;font-weight:700">📍 ${t.gpsFarLabel} (${r.checkInDistance}${t.gpsMetersUnit})</span>` : (r.checkInDistance != null ? `<br><span style="color:var(--amber-dark);font-size:11.5px">✓ ${t.gpsNearLabel}</span>` : '')}</td>
+      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}${r.checkOutLocationFlag ? `<br><span style="color:var(--danger);font-size:11.5px;font-weight:700">📍 ${t.gpsFarLabel} (${r.checkOutDistance}${t.gpsMetersUnit})</span>` : (r.checkOutDistance != null ? `<br><span style="color:var(--amber-dark);font-size:11.5px">✓ ${t.gpsNearLabel}</span>` : '')}</td>
       <td data-label="${t.attHoursCol}">${formatHours(hours, getLang())}</td>
       <td data-label="${t.col_actions}"><button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px" onclick="window.__editAttendance('${r.idNumber}','${r.date}')">${t.editBtn}</button></td>
     </tr>
@@ -1083,6 +1089,7 @@ function renderAttendanceSummary(data){
 
 document.getElementById('attSearch').addEventListener('input', renderAttendance);
 document.getElementById('attBranchFilter').addEventListener('change', renderAttendance);
+document.getElementById('attFarOnlyFilter').addEventListener('change', renderAttendance);
 document.getElementById('attRefreshBtn').addEventListener('click', async () => { await loadAttendance(); renderAttendance(); });
 
 // ==============================================================
