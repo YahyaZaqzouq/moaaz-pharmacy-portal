@@ -163,6 +163,13 @@ document.getElementById('checkInBtn').addEventListener('click', async () => {
       return;
     }
 
+    // لو النهاردة فيها انصراف يتيم اتسجل قبل كده من غير حضور، نأرشفه في سجل منفصل
+    // عشان الحضور الجديد ده ميترّبطش غلط بانصراف مالوش علاقة بيه
+    if(existing.exists() && existing.data().checkOutAt && !existing.data().checkInAt){
+      const orphanId = `${docId}_orphan${Date.now()}`;
+      await setDoc(doc(db, 'attendance', orphanId), existing.data());
+    }
+
     const loc = await getLocation();
     const locCheck = checkLocationFlag(loc);
 
@@ -175,8 +182,11 @@ document.getElementById('checkInBtn').addEventListener('click', async () => {
       checkInLocation: loc,
       checkInTime: now.toTimeString().slice(0,5),
       checkInLocationFlag: locCheck.flag,
-      checkInDistance: locCheck.distance ?? null
-    }, { merge: true });
+      checkInDistance: locCheck.distance ?? null,
+      checkOutAt: null,
+      checkOutTime: null,
+      missingCheckIn: false
+    });
 
     showMsg(locCheck.flag ? t.checkInFarMsg : t.checkInSuccessMsg, true);
   } catch(e){
