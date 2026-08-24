@@ -289,6 +289,16 @@
     <!-- قسم الحضور والانصراف (عرض فقط) -->
     <div id="attendanceSection" style="display:none">
       <div class="hint" style="margin-bottom:14px" data-i18n="attViewHint">التسجيل نفسه بيتم من صفحة منفصلة عن طريق كود QR الخاص بالفرع (متاح من لوحة المسؤول). هنا بس عرض للسجل.</div>
+      <div class="field-row" id="attDateRangeWrapBranch" style="display:none;margin-bottom:14px">
+        <div>
+          <label data-i18n="attFromDate">من تاريخ</label>
+          <input type="date" id="attFromDateBranch">
+        </div>
+        <div>
+          <label data-i18n="attToDate">إلى تاريخ</label>
+          <input type="date" id="attToDateBranch">
+        </div>
+      </div>
       <div class="toolbar">
         <input type="text" id="attSearchBranch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
         <button class="btn btn-ghost" id="attExportBtnBranch" data-i18n="exportBtn">تصدير Excel</button>
@@ -1393,7 +1403,16 @@ async function initAttendanceTab(){
 async function loadAttendanceView(){
   let q;
   if(isMainAdmin || myBranchNumber === null){
-    q = query(collection(db, 'attendance'));
+    document.getElementById('attDateRangeWrapBranch').style.display = 'grid';
+    const fromEl = document.getElementById('attFromDateBranch');
+    const toEl = document.getElementById('attToDateBranch');
+    if(!fromEl.value){
+      const now = new Date();
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      fromEl.value = firstOfMonth.toISOString().slice(0,10);
+      toEl.value = now.toISOString().slice(0,10);
+    }
+    q = query(collection(db, 'attendance'), where('date', '>=', fromEl.value), where('date', '<=', toEl.value));
   } else {
     q = query(collection(db, 'attendance'), where('branchNumber', '==', String(myBranchNumber)));
   }
@@ -1482,6 +1501,8 @@ function renderAttendanceView(){
 
 document.getElementById('attSearchBranch').addEventListener('input', renderAttendanceView);
 document.getElementById('attRefreshBtnBranch').addEventListener('click', async () => { await loadAttendanceView(); renderAttendanceView(); });
+document.getElementById('attFromDateBranch').addEventListener('change', async () => { await loadAttendanceView(); renderAttendanceView(); });
+document.getElementById('attToDateBranch').addEventListener('change', async () => { await loadAttendanceView(); renderAttendanceView(); });
 
 document.getElementById('attExportBtnBranch').addEventListener('click', () => {
   const t = dict[getLang()];

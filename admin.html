@@ -170,6 +170,17 @@
     </div>
 
     <div id="attendanceView" style="display:none">
+      <div class="hint" style="margin-bottom:12px" data-i18n="attDateRangeHint">التقرير بيجيب بيانات الفترة المحددة بس (عشان يوفّر في حد القراءة اليومي المجاني) — وسّع أو غيّر التاريخ لو محتاج فترة تانية.</div>
+      <div class="field-row" style="margin-bottom:14px">
+        <div>
+          <label data-i18n="attFromDate">من تاريخ</label>
+          <input type="date" id="attFromDate">
+        </div>
+        <div>
+          <label data-i18n="attToDate">إلى تاريخ</label>
+          <input type="date" id="attToDate">
+        </div>
+      </div>
       <div class="toolbar">
         <input type="text" id="attSearch" data-i18n-placeholder="searchPlaceholder" placeholder="بحث بالاسم أو رقم الفرع...">
         <select id="attBranchFilter">
@@ -996,8 +1007,24 @@ function formatHours(hours, lang){
   return lang === 'ar' ? `${h}س ${m}د` : `${h}h ${m}m`;
 }
 
+function initAttendanceDateRange(){
+  const fromEl = document.getElementById('attFromDate');
+  const toEl = document.getElementById('attToDate');
+  if(!fromEl.value){
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    fromEl.value = firstOfMonth.toISOString().slice(0,10);
+    toEl.value = now.toISOString().slice(0,10);
+  }
+}
+
 async function loadAttendance(){
-  const snap = await getDocs(collection(db, 'attendance'));
+  initAttendanceDateRange();
+  const fromDate = document.getElementById('attFromDate').value;
+  const toDate = document.getElementById('attToDate').value;
+
+  const q = query(collection(db, 'attendance'), where('date', '>=', fromDate), where('date', '<=', toDate));
+  const snap = await getDocs(q);
   attendanceData = snap.docs.map(d => d.data())
     .sort((a,b) => `${b.date||''} ${b.checkInTime||''}`.localeCompare(`${a.date||''} ${a.checkInTime||''}`));
 
@@ -1090,6 +1117,8 @@ function renderAttendanceSummary(data){
 document.getElementById('attSearch').addEventListener('input', renderAttendance);
 document.getElementById('attBranchFilter').addEventListener('change', renderAttendance);
 document.getElementById('attFarOnlyFilter').addEventListener('change', renderAttendance);
+document.getElementById('attFromDate').addEventListener('change', async () => { await loadAttendance(); renderAttendance(); });
+document.getElementById('attToDate').addEventListener('change', async () => { await loadAttendance(); renderAttendance(); });
 document.getElementById('attRefreshBtn').addEventListener('click', async () => { await loadAttendance(); renderAttendance(); });
 
 // ==============================================================
