@@ -95,6 +95,30 @@
       <div class="msg" id="qrMsg"></div>
     </div>
 
+    <div class="card">
+      <div class="eyebrow" data-i18n="gpsEyebrow">إحداثيات موقع الفرع (GPS)</div>
+      <div class="hint" style="margin-bottom:14px" data-i18n="gpsHint">حط إحداثيات كل فرع عشان نقدر نتأكد إن الصيدلي/العامل قريب من الفرع فعليًا وقت تسجيل الحضور والانصراف. من غير إحداثيات، النظام مش هيتحقق من الموقع لهذا الفرع.</div>
+
+      <div class="field-row">
+        <div>
+          <label data-i18n="label_branchNumber">رقم الفرع</label>
+          <input type="text" id="gpsBranchInput" inputmode="numeric" data-i18n-placeholder="ph_branchNumber" placeholder="مثال: 29">
+        </div>
+        <div>
+          <label data-i18n="gpsLatLabel">خط العرض (Latitude)</label>
+          <input type="text" id="gpsLatInput" inputmode="decimal" placeholder="16.9375794">
+        </div>
+      </div>
+      <label data-i18n="gpsLngLabel">خط الطول (Longitude)</label>
+      <input type="text" id="gpsLngInput" inputmode="decimal" placeholder="42.6394355">
+
+      <div class="actions">
+        <button class="btn btn-primary" id="saveGpsBtn" data-i18n="gpsSaveBtn">حفظ إحداثيات الفرع</button>
+        <button class="btn btn-ghost" id="loadGpsBtn" data-i18n="gpsLoadBtn">تحميل بيانات الفرع الحالية</button>
+      </div>
+      <div class="msg" id="gpsMsg"></div>
+    </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="pharmacists" data-i18n="tab_pharmacists">الصيادلة</div>
       <div class="tab" data-tab="workers" data-i18n="tab_workers">العمال</div>
@@ -791,6 +815,60 @@ document.getElementById('exportBtn').addEventListener('click', () => {
 });
 
 // ==============================================================
+// إحداثيات موقع الفرع (GPS)
+// ==============================================================
+
+document.getElementById('saveGpsBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const branchNumber = document.getElementById('gpsBranchInput').value.trim();
+  const lat = parseFloat(document.getElementById('gpsLatInput').value.trim());
+  const lng = parseFloat(document.getElementById('gpsLngInput').value.trim());
+  const msgEl = document.getElementById('gpsMsg');
+
+  if(!branchNumber || isNaN(lat) || isNaN(lng)){
+    msgEl.textContent = t.errRequired_gps;
+    msgEl.className = 'msg show err';
+    return;
+  }
+
+  try{
+    await setDoc(doc(db, 'branch_locations', branchNumber), { branchNumber, lat, lng });
+    msgEl.textContent = t.successMsg;
+    msgEl.className = 'msg show ok';
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  }
+});
+
+document.getElementById('loadGpsBtn').addEventListener('click', async () => {
+  const t = dict[getLang()];
+  const branchNumber = document.getElementById('gpsBranchInput').value.trim();
+  const msgEl = document.getElementById('gpsMsg');
+  if(!branchNumber){
+    msgEl.textContent = t.errRequired_branchNumber;
+    msgEl.className = 'msg show err';
+    return;
+  }
+  try{
+    const snap = await getDoc(doc(db, 'branch_locations', branchNumber));
+    if(snap.exists()){
+      document.getElementById('gpsLatInput').value = snap.data().lat;
+      document.getElementById('gpsLngInput').value = snap.data().lng;
+      msgEl.className = 'msg';
+    } else {
+      document.getElementById('gpsLatInput').value = '';
+      document.getElementById('gpsLngInput').value = '';
+      msgEl.textContent = t.gpsNotSetMsg;
+      msgEl.className = 'msg show err';
+    }
+  } catch(e){
+    msgEl.textContent = t.errPrefix + e.message;
+    msgEl.className = 'msg show err';
+  }
+});
+
+// ==============================================================
 // كود QR للحضور والانصراف
 // ==============================================================
 
@@ -960,8 +1038,8 @@ function renderAttendance(){
       <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
       <td data-label="${t.label_fullName}">${r.name || ''}${manualBadge}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
-      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}</td>
-      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
+      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}${r.checkInLocationFlag ? ` <span title="${t.gpsFarTooltip} (${r.checkInDistance}m)" style="color:var(--danger)">📍</span>` : ''}</td>
+      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}${r.checkOutLocationFlag ? ` <span title="${t.gpsFarTooltip} (${r.checkOutDistance}m)" style="color:var(--danger)">📍</span>` : ''}</td>
       <td data-label="${t.attHoursCol}">${formatHours(hours, getLang())}</td>
       <td data-label="${t.col_actions}"><button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px" onclick="window.__editAttendance('${r.idNumber}','${r.date}')">${t.editBtn}</button></td>
     </tr>

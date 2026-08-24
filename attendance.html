@@ -57,6 +57,8 @@ const params = new URLSearchParams(location.search);
 const token = params.get('t');
 
 let branchNumber = null;
+let branchCoords = null;
+const GPS_THRESHOLD_METERS = 300;
 
 async function resolveToken(){
   if(!token){
@@ -74,6 +76,11 @@ async function resolveToken(){
     const t = dict[getLang()];
     document.getElementById('branchLabel').textContent = `${t.col_branchNumber} ${branchNumber}`;
     document.getElementById('attCard').style.display = 'block';
+
+    try{
+      const locSnap = await getDoc(doc(db, 'branch_locations', branchNumber));
+      if(locSnap.exists()) branchCoords = locSnap.data();
+    } catch(e){ /* لو مفيش إحداثيات محفوظة، بنكمّل عادي من غير تحقق موقع */ }
   } catch(e){
     document.getElementById('invalidCard').style.display = 'block';
   }
@@ -96,6 +103,21 @@ function getLocation(){
       { timeout: 6000 }
     );
   });
+}
+
+function distanceMeters(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function checkLocationFlag(loc){
+  if(!loc || !branchCoords) return { flag: false };
+  const dist = distanceMeters(loc.lat, loc.lng, branchCoords.lat, branchCoords.lng);
+  return { flag: dist > GPS_THRESHOLD_METERS, distance: Math.round(dist) };
 }
 
 function showMsg(text, ok){
@@ -142,6 +164,7 @@ document.getElementById('checkInBtn').addEventListener('click', async () => {
     }
 
     const loc = await getLocation();
+    const locCheck = checkLocationFlag(loc);
 
     await setDoc(ref, {
       idNumber: entry.idNumber,
@@ -150,10 +173,12 @@ document.getElementById('checkInBtn').addEventListener('click', async () => {
       date: dateStr,
       checkInAt: serverTimestamp(),
       checkInLocation: loc,
-      checkInTime: now.toTimeString().slice(0,5)
+      checkInTime: now.toTimeString().slice(0,5),
+      checkInLocationFlag: locCheck.flag,
+      checkInDistance: locCheck.distance ?? null
     }, { merge: true });
 
-    showMsg(t.checkInSuccessMsg, true);
+    showMsg(locCheck.flag ? t.checkInFarMsg : t.checkInSuccessMsg, true);
   } catch(e){
     showMsg(t.errPrefix + e.message, false);
   } finally {
@@ -195,6 +220,7 @@ document.getElementById('checkOutBtn').addEventListener('click', async () => {
 
     const missingCheckIn = !existing.exists() || !existing.data().checkInAt;
     const loc = await getLocation();
+    const locCheck = checkLocationFlag(loc);
 
     const data = {
       idNumber: entry.idNumber,
@@ -202,7 +228,9 @@ document.getElementById('checkOutBtn').addEventListener('click', async () => {
       branchNumber,
       checkOutAt: serverTimestamp(),
       checkOutLocation: loc,
-      checkOutTime: now.toTimeString().slice(0,5)
+      checkOutTime: now.toTimeString().slice(0,5),
+      checkOutLocationFlag: locCheck.flag,
+      checkOutDistance: locCheck.distance ?? null
     };
     if(!existing.exists()) data.date = todayStr;
     if(missingCheckIn) data.missingCheckIn = true;
@@ -210,7 +238,12 @@ document.getElementById('checkOutBtn').addEventListener('click', async () => {
     await setDoc(ref, data, { merge: true });
 
     const isOvernight = (ref === yesterdayRef) && !missingCheckIn;
-    showMsg(missingCheckIn ? t.checkOutNoCheckInMsg : (isOvernight ? t.checkOutOvernightMsg : t.checkOutSuccessMsg), true);
+    let msg;
+    if(missingCheckIn) msg = t.checkOutNoCheckInMsg;
+    else if(locCheck.flag) msg = t.checkOutFarMsg;
+    else if(isOvernight) msg = t.checkOutOvernightMsg;
+    else msg = t.checkOutSuccessMsg;
+    showMsg(msg, true);
   } catch(e){
     showMsg(t.errPrefix + e.message, false);
   } finally {

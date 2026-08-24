@@ -159,6 +159,11 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
 
+    match /branch_locations/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
     match /attendance/{docId} {
       allow get: if true;
       allow list: if request.auth != null && (
@@ -198,6 +203,11 @@ service cloud.firestore {
 
 ### ملف جديد يحتاج رفع
 - `attendance.html` — صفحة تسجيل الحضور والانصراف نفسها (بتوصلها من كود QR)
+
+### تحديث: التحقق من الموقع الجغرافي (GPS)
+من `admin.html`، كارت "إحداثيات موقع الفرع (GPS)": اكتب رقم الفرع وخط العرض وخط الطول ودوس "حفظ إحداثيات الفرع". من غير إحداثيات محفوظة لفرع معيّن، النظام مش هيتحقق من الموقع لهذا الفرع خالص (هيسجل عادي من غير أي تنبيه).
+
+لو الفرع عنده إحداثيات محفوظة، وحد سجّل حضور أو انصراف من مكان بعيد عن الفرع (أكتر من 300 متر)، النظام **مش بيمنعه** — بيسجّل العملية عادي، بس بيحط علامة 📍 حمرا جنب الوقت في تقرير المسؤول والفرع، عشان المسؤول يراجعها لو حبّ.
 
 ---
 

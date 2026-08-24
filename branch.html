@@ -1470,8 +1470,8 @@ function renderAttendanceView(){
     <tr>
       <td data-label="${t.label_fullName}">${r.name || ''}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
-      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}</td>
-      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}</td>
+      <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}${r.checkInLocationFlag ? ` <span title="${t.gpsFarTooltip} (${r.checkInDistance}m)" style="color:var(--danger)">📍</span>` : ''}</td>
+      <td data-label="${t.attCheckOutCol}" style="${!r.checkOutTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkOutTime || t.attNotCheckedOut}${r.checkOutLocationFlag ? ` <span title="${t.gpsFarTooltip} (${r.checkOutDistance}m)" style="color:var(--danger)">📍</span>` : ''}</td>
       <td data-label="${t.attHoursCol}">${formatHours(hours, getLang())}</td>
     </tr>
   `;
