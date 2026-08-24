@@ -325,6 +325,7 @@
         <table id="attTableBranch">
           <thead>
             <tr>
+              <th data-i18n="col_branchNumber">رقم الفرع</th>
               <th data-i18n="label_fullName">الاسم رباعي</th>
               <th data-i18n="col_date">التاريخ</th>
               <th data-i18n="attCheckInCol">وقت الحضور</th>
@@ -1487,6 +1488,7 @@ function renderAttendanceView(){
     const hours = calcWorkHours(r.checkInTime, r.checkOutTime);
     return `
     <tr>
+      <td data-label="${t.col_branchNumber}">${r.branchNumber || ''}</td>
       <td data-label="${t.label_fullName}">${r.name || ''}</td>
       <td data-label="${t.col_date}">${r.date || ''}</td>
       <td data-label="${t.attCheckInCol}" style="${!r.checkInTime ? 'color:var(--danger);font-weight:700' : ''}">${r.checkInTime || t.attNoCheckIn}${r.checkInLocationFlag ? `<br><span style="color:var(--danger);font-size:11.5px;font-weight:700">📍 ${t.gpsFarLabel} (${r.checkInDistance}${t.gpsMetersUnit})</span>` : (r.checkInDistance != null ? `<br><span style="color:var(--amber-dark);font-size:11.5px">✓ ${t.gpsNearLabel}</span>` : '')}</td>
