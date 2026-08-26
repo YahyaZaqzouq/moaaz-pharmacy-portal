@@ -257,6 +257,7 @@
       </div>
 
       <div class="toolbar">
+        <input type="month" id="tempMonthFilter">
         <select id="tempBranchFilter" style="display:none">
           <option value="" data-i18n="filterAllBranches">كل الفروع</option>
         </select>
@@ -1251,10 +1252,22 @@ async function initTempTab(){
   renderTempLogs();
 }
 
+function initTempMonthFilter(){
+  const monthEl = document.getElementById('tempMonthFilter');
+  if(!monthEl.value){
+    monthEl.value = new Date().toISOString().slice(0,7);
+  }
+}
+
 async function loadTempLogs(){
+  initTempMonthFilter();
+  const month = document.getElementById('tempMonthFilter').value;
+
   let q;
   if(isMainAdmin || myBranchNumber === null){
-    q = query(collection(db, 'temp_logs'));
+    const fromDate = `${month}-01`;
+    const toDate = `${month}-31`;
+    q = query(collection(db, 'temp_logs'), where('date', '>=', fromDate), where('date', '<=', toDate));
   } else {
     q = query(collection(db, 'temp_logs'), where('branchNumber', '==', String(myBranchNumber)));
   }
@@ -1274,7 +1287,11 @@ async function loadTempLogs(){
 
 function filteredTempLogs(){
   const branchFilter = document.getElementById('tempBranchFilter').value;
-  return tempLogsData.filter(r => !branchFilter || String(r.branchNumber||'') === branchFilter);
+  const month = document.getElementById('tempMonthFilter').value;
+  return tempLogsData.filter(r =>
+    (!branchFilter || String(r.branchNumber||'') === branchFilter) &&
+    (!month || (r.date || '').startsWith(month))
+  );
 }
 
 function renderTempLogs(){
@@ -1313,6 +1330,7 @@ function renderTempLogs(){
 }
 
 document.getElementById('tempBranchFilter').addEventListener('change', renderTempLogs);
+document.getElementById('tempMonthFilter').addEventListener('change', async () => { await loadTempLogs(); renderTempLogs(); });
 document.getElementById('tempRefreshBtn').addEventListener('click', async () => { await loadTempLogs(); renderTempLogs(); });
 
 document.getElementById('tempSection').addEventListener('input', (e) => {

@@ -350,6 +350,15 @@ document.getElementById('logoutBtn').addEventListener('click', () => signOut(aut
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
+    const tokenResult = await user.getIdTokenResult();
+    if(tokenResult.claims.role !== 'admin'){
+      const t = dict[getLang()];
+      await signOut(auth);
+      loginMsg.textContent = t.notAdminMsg;
+      loginMsg.className = 'msg show err';
+      return;
+    }
+
     loginCard.style.display = 'none';
     dashboard.style.display = 'block';
     const t = dict[getLang()];
