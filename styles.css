@@ -252,6 +252,24 @@ input:focus, select:focus{
 .tab.active{ background: var(--amber); border-color: var(--amber); color:#fff; box-shadow: 0 4px 12px rgba(20,143,108,0.3); }
 
 .toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+
+.month-picker{
+  display:inline-flex; align-items:center; gap:8px;
+  background: var(--card); border:1.5px solid var(--line);
+  border-radius: var(--radius-capsule);
+  padding: 6px 8px 6px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+  width: fit-content;
+}
+.month-picker-icon{ font-size: 15px; flex-shrink:0; }
+.month-picker select{
+  border:none; background: transparent; padding: 7px 10px;
+  font-family:'Cairo', sans-serif; font-weight:700; font-size:14px;
+  color: var(--ink); cursor:pointer; width:auto;
+}
+.month-picker select:focus{ box-shadow:none; background: rgba(20,143,108,0.08); border-radius: var(--radius-capsule); }
+.month-picker select:first-of-type{ border-inline-end: 1.5px solid var(--line); border-radius:0; }
 .toolbar input[type=text]{ flex:1; min-width:160px; }
 
 table{ width:100%; border-collapse: collapse; font-size:14.5px; }

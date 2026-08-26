@@ -256,8 +256,13 @@
         <div class="msg" id="tempMsg"></div>
       </div>
 
+      <div class="month-picker">
+        <span class="month-picker-icon">📅</span>
+        <select id="tempMonthSelect"></select>
+        <select id="tempYearSelect"></select>
+      </div>
+
       <div class="toolbar">
-        <input type="month" id="tempMonthFilter">
         <select id="tempBranchFilter" style="display:none">
           <option value="" data-i18n="filterAllBranches">كل الفروع</option>
         </select>
@@ -1252,16 +1257,33 @@ async function initTempTab(){
   renderTempLogs();
 }
 
-function initTempMonthFilter(){
-  const monthEl = document.getElementById('tempMonthFilter');
-  if(!monthEl.value){
-    monthEl.value = new Date().toISOString().slice(0,7);
-  }
+const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function populateMonthYearPickers(){
+  const monthSelect = document.getElementById('tempMonthSelect');
+  const yearSelect = document.getElementById('tempYearSelect');
+  const names = getLang() === 'ar' ? MONTHS_AR : MONTHS_EN;
+
+  const prevMonth = monthSelect.value;
+  const prevYear = yearSelect.value;
+  monthSelect.innerHTML = names.map((name, i) => `<option value="${String(i+1).padStart(2,'0')}">${name}</option>`).join('');
+  monthSelect.value = prevMonth || String(new Date().getMonth() + 1).padStart(2,'0');
+
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for(let y = currentYear + 1; y >= currentYear - 3; y--) years.push(y);
+  yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  yearSelect.value = prevYear || String(currentYear);
+}
+
+function currentTempMonthValue(){
+  return `${document.getElementById('tempYearSelect').value}-${document.getElementById('tempMonthSelect').value}`;
 }
 
 async function loadTempLogs(){
-  initTempMonthFilter();
-  const month = document.getElementById('tempMonthFilter').value;
+  populateMonthYearPickers();
+  const month = currentTempMonthValue();
 
   let q;
   if(isMainAdmin || myBranchNumber === null){
@@ -1287,7 +1309,7 @@ async function loadTempLogs(){
 
 function filteredTempLogs(){
   const branchFilter = document.getElementById('tempBranchFilter').value;
-  const month = document.getElementById('tempMonthFilter').value;
+  const month = currentTempMonthValue();
   return tempLogsData.filter(r =>
     (!branchFilter || String(r.branchNumber||'') === branchFilter) &&
     (!month || (r.date || '').startsWith(month))
@@ -1330,7 +1352,8 @@ function renderTempLogs(){
 }
 
 document.getElementById('tempBranchFilter').addEventListener('change', renderTempLogs);
-document.getElementById('tempMonthFilter').addEventListener('change', async () => { await loadTempLogs(); renderTempLogs(); });
+document.getElementById('tempMonthSelect').addEventListener('change', async () => { await loadTempLogs(); renderTempLogs(); });
+document.getElementById('tempYearSelect').addEventListener('change', async () => { await loadTempLogs(); renderTempLogs(); });
 document.getElementById('tempRefreshBtn').addEventListener('click', async () => { await loadTempLogs(); renderTempLogs(); });
 
 document.getElementById('tempSection').addEventListener('input', (e) => {
